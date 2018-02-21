@@ -2,6 +2,11 @@
 set -e
 
 ########################################## PREPARE FUNCTIONS ########################################## 
+# Source SetUpHCPPipeline.sh to set up pipeline environment variables and software
+# Requirements for this script
+#  installed versions of FSL 5.0.7 or greater
+#  environment: FSLDIR , HCPPIPEDIR , CARET7DIR 
+source /home/shared/HCP/taskfmri/phase2/fmri/WORK/GREG_work/HCD_MRFIX_TASK_ANALYSIS/SCRIPTS/SetUpHCPPipeline.sh
 
 source ${HCPPIPEDIR}/global/scripts/log.shlib 			# Logging related functions
 source ${HCPPIPEDIR}/global/scripts/fsl_version.shlib 	# Function for getting FSL version
@@ -25,8 +30,9 @@ show_tool_versions()
 
 
 ########################################## READ COMMAND-LINE ARGUMENTS ##################################
-
-log_Msg "TaskfMRILevel1.sh arguments: $@"
+g_script_name=`basename ${0}`
+log_SetToolName "${g_script_name}"
+log_Msg "${g_script_name} arguments: $@"
 
 Subject="$1"
 ResultsFolder="$2"
@@ -214,7 +220,7 @@ if [ -z ${ParcellationString} ] ; then
   #Run film_gls on cortical surface data 
   log_Msg "Run film_gls on cortical surface data"
   for Hemisphere in L R ; do
-    #Prepare for film_gls  
+    #Prepare for film_gls. Some smoothing is done when calculating the prewhitening. The medial wall is empty in the GIFTI image, so a metric-dilate is done to avoid smoothing null data into the signal.
 	log_Msg "Prepare for film_gls"
     ${CARET7DIR}/wb_command -metric-dilate ${FEATDir}/${LevelOnefMRIName}${TemporalFilterString}${SmoothingString}${RegString}${AdditionalPreprocessingString}.atlasroi."$Hemisphere"."$LowResMesh"k_fs_LR.func.gii "$DownSampleFolder"/"$Subject"."$Hemisphere".midthickness."$LowResMesh"k_fs_LR.surf.gii 50 ${FEATDir}/${LevelOnefMRIName}${TemporalFilterString}${SmoothingString}${RegString}${AdditionalPreprocessingString}.atlasroi_dil."$Hemisphere"."$LowResMesh"k_fs_LR.func.gii -nearest
 

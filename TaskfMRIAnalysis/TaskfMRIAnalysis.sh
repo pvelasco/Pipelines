@@ -46,7 +46,7 @@ set -e
 
 # Load function libraries
 source ${HCPPIPEDIR}/global/scripts/log.shlib  # Logging related functions
-source ${HCPPIPEDIR}/global/scripts/opts.shlib # Command line option funtions
+source ${HCPPIPEDIR}/global/scripts/opts.shlib # Command line option functions
 
 # Other utility functions
 get_fsl_version()
@@ -227,12 +227,15 @@ else
 	  i=$(($i+1))
 	done
 
-	LevelOnefMRINames=`echo $LevelOnefMRINames | sed 's/ /@/g'`
-	LevelOnefsfNames=`echo $LevelOnefMRINames | sed 's/ /@/g'`
+	if [ "$LevelTwofMRIName" != "NONE" ]
+	then
+		LevelOnefMRINames=`echo $LevelOnefMRINames | sed 's/ /@/g'`
+		LevelOnefsfNames=`echo $LevelOnefMRINames | sed 's/ /@/g'`
 
-	#Combine Data Across Phase Encoding Directions in the Level Two Analysis
-	log_Msg "Combine Data Across Phase Encoding Directions in the Level Two Analysis"
-	${HCPPIPEDIR_tfMRIAnalysis}/TaskfMRILevel2.sh \
+		#Combine Data Across Phase Encoding Directions in the Level Two Analysis
+		log_Msg "Combine Data Across Phase Encoding Directions in the Level Two Analysis"
+		log_Msg "Issued command: ${HCPPIPEDIR_tfMRIAnalysis}/TaskfMRILevel2.sh $Subject $ResultsFolder $DownSampleFolder $LevelOnefMRINames $LevelOnefsfNames $LevelTwofMRIName $LevelTwofsfNames $LowResMesh $FinalSmoothingFWHM $TemporalFilter $VolumeBasedProcessing $RegName $Parcellation $AdditionalPreprocessing"
+		${HCPPIPEDIR_tfMRIAnalysis}/TaskfMRILevel2.sh \
 		  $Subject \
 		  $ResultsFolder \
 		  $DownSampleFolder \
@@ -247,8 +250,7 @@ else
 		  $RegName \
 		  $Parcellation \
 		  $AdditionalPreprocessing
-	log_Msg "Issued command: ${HCPPIPEDIR_tfMRIAnalysis}/TaskfMRILevel2.sh $Subject $ResultsFolder $DownSampleFolder $LevelOnefMRINames $LevelOnefsfNames $LevelTwofMRIName $LevelTwofsfNames $LowResMesh $FinalSmoothingFWHM $TemporalFilter $VolumeBasedProcessing $RegName $Parcellation $AdditionalPreprocessing"
-
+	fi
 fi
 
 log_Msg "Completed"
