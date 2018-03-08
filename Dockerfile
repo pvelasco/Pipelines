@@ -107,13 +107,14 @@ ENV MINC_BIN_DIR=${MNI_DIR}/bin \
 
 # Install packages needed for the pipelines (and wget):
 RUN yum -y update \
-    && yum install -y git freetype libpng libSM libXrender fontconfig libXext \
+    && yum install -y freetype libpng libSM libXrender fontconfig libXext \
     && yum clean all
 
 # Install HCP Pipelines v.3.4.0 from github, and get folder where it is installed.
 ENV HCPPIPEDIR=${INSTALL_FOLDER}/Pipelines
 RUN mkdir ${HCPPIPEDIR} \
-    && git clone --branch=v3.4 https://github.com/pvelasco/Pipelines.git
+    && curl -sSL https://github.com/pvelasco/Pipelines/archive/v3.4.tar.gz \
+        | tar -vxz -C ${HCPPIPEDIR} --strip-components=1
 
 
 ###   Install HCP Workbench   ###
@@ -141,14 +142,13 @@ RUN curl -sSL https://github.com/Washington-University/gradunwarp/archive/v1.0.3
 
 
 # Set up the HCP Pipeline environment:
-RUN sed -i 's/export HCPPIPEDIR=${HOME}\/projects\/Pipelines//' $SETUPFILE \
-    && sed -i 's/export CARET7DIR=${HOME}\/workbench\/bin_linux64/export CARET7DIR=${INSTALL_FOLDER}\/workbench\/bin_rh_linux64/' $SETUPFILE \
-    && echo "source ${SETUPFILE}" >> /root/.bashrc
-# Configure bashrc to run configuration script for FSL:
-#RUN echo ". /etc/fsl/5.0/fsl.sh" >> /root/.bashrc
+# If you need to modify the SetUp file:
+#ENV SETUPFILE=${HCPPIPEDIR}/Examples/Scripts/SetUpHCPPipeline.sh
+#RUN sed -i 's/export HCPPIPEDIR=${HOME}\/projects\/Pipelines//' $SETUPFILE \
+#    && sed -i 's/export CARET7DIR=${HOME}\/workbench\/bin_linux64/export CARET7DIR=${INSTALL_FOLDER}\/workbench\/bin_rh_linux64/' $SETUPFILE \
+#    && echo "source ${SETUPFILE}" >> /root/.bashrc
 # Configure bashrc to source FreeSurferEnv.sh
 #RUN /bin/bash -c ' echo -e "source $FREESURFER_HOME/FreeSurferEnv.sh &>/dev/null" >> /root/.bashrc '
-
 
 
 
