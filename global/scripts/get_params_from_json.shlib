@@ -1,0 +1,75 @@
+#
+# Description:
+# 
+#   Reads a parameter from a given .json file
+#
+# Input:
+# 
+#   The first argument is the parameter name (exactly as it appears in the file,
+#      without quotes; if it has scaped quotes, it will not work)
+#   The second argument is the json file with the header parameters
+#
+read_header_param() {
+   paramName="$1"
+   jsonFile="$2"
+
+  myStr=\"$paramName\"
+  myTmp=`grep $myStr ${jsonFile}`
+  myTmp=${myTmp#*$myStr: }
+  echo ${myTmp%,}
+
+  return
+}
+
+#     #     #     #     #     #     #     #     #     #     #     #     #     #     #     
+
+#
+# Description:
+# 
+#   Reads a multi-line parameter from a given .json file (e.g., "ImageType")
+#
+# Input:
+# 
+#   The first argument is the parameter name (exactly as it appears in the file,
+#      without quotes; if it has scaped quotes, it will not work)
+#   The second argument is the json file with the header parameters
+#
+read_multiline_header_param() {
+   paramName="$1"
+   jsonFile="$2"
+
+  myStr=\"$paramName\"
+  # we know it's not going to take more than 20 lines: so grab 20
+  myTmp=`grep -A 20 $myStr ${jsonFile}`
+  myTmp=${myTmp#*$myStr: [}
+  echo ${myTmp%%"],"*}
+
+  return
+}
+
+#     #     #     #     #     #     #     #     #     #     #     #     #     #     #     
+
+#
+# Description:
+# 
+#   Calculates the DwellTime (a.k.a. Effective Echo Spacing) for a given .json file
+#
+# DwellTime: Echo Spacing or Dwelltime of spin echo EPI MRI image.
+# Dwelltime = 1/(BandwidthPerPixelPhaseEncode * # of phase encoding samples)
+#
+# Input:
+# 
+#   The json file with the header parameters
+#
+get_DwellTime() {
+   jsonFile="$1"
+
+  # Get the parameters needed for the calculation:
+  BandwidthPerPixelPhaseEncode=`read_header_param BandwidthPerPixelPhaseEncode ${jsonFile}` 
+  PhaseEncodingSteps=`read_header_param PhaseEncodingSteps ${jsonFile}`
+
+  echo "scale=9; 1/($BandwidthPerPixelPhaseEncode * $PhaseEncodingSteps)" | bc
+
+  return
+}
+

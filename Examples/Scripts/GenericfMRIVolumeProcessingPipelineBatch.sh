@@ -1,5 +1,8 @@
 #!/bin/bash 
 
+# TO-DO:
+# - Either run it on all tasks/resting, or set tasks as argument
+
 get_batch_options() {
     local arguments=($@)
 
@@ -30,6 +33,8 @@ get_batch_options() {
         esac
     done
 }
+
+#####     #####     Main     #####     #####
 
 get_batch_options $@
 
@@ -108,7 +113,7 @@ for Subject in $Subjlist ; do
     UnwarpDir=`echo $PhaseEncodinglist | cut -d " " -f $i`
     fMRITimeSeries="${StudyFolder}/${Subject}/unprocessed/3T/${fMRIName}/${Subject}_3T_${fMRIName}.nii.gz"
     fMRISBRef="${StudyFolder}/${Subject}/unprocessed/3T/${fMRIName}/${Subject}_3T_${fMRIName}_SBRef.nii.gz" #A single band reference image (SBRef) is recommended if using multiband, set to NONE if you want to use the first volume of the timeseries for motion correction
-    DwellTime="0.00058" #Echo Spacing or Dwelltime of fMRI image, set to NONE if not used. Dwelltime = 1/(BandwidthPerPixelPhaseEncode * # of phase encoding samples): DICOM field (0019,1028) = BandwidthPerPixelPhaseEncode, DICOM field (0051,100b) AcquisitionMatrixText first value (# of phase encoding samples).  On Siemens, iPAT/GRAPPA factors have already been accounted for.   
+    DwellTime=`get_DwellTime ${SpinEchoPhaseEncodeNegative%.nii*}.json` #Echo Spacing or Dwelltime of fMRI image, set to NONE if not used.
     DistortionCorrection="TOPUP" #FIELDMAP or TOPUP, distortion correction is required for accurate processing
     SpinEchoPhaseEncodeNegative="${StudyFolder}/${Subject}/unprocessed/3T/${fMRIName}/${Subject}_3T_SpinEchoFieldMap_LR.nii.gz" #For the spin echo field map volume with a negative phase encoding direction (LR in HCP data, AP in 7T HCP data), set to NONE if using regular FIELDMAP
     SpinEchoPhaseEncodePositive="${StudyFolder}/${Subject}/unprocessed/3T/${fMRIName}/${Subject}_3T_SpinEchoFieldMap_RL.nii.gz" #For the spin echo field map volume with a positive phase encoding direction (RL in HCP data, PA in 7T HCP data), set to NONE if using regular FIELDMAP

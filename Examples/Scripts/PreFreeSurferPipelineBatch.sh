@@ -1,10 +1,21 @@
-#!/bin/bash 
+#!/bin/bash
+
+# Changes w.r.t. the official HCP Pipelines v.3.4.0:
+# - It assumes data organization and file names follow BIDS convention
+# - It reads the DwellTime, PE direction, etc. from the .json files
+# - Added "B0distortionCorrectionMode" as an option
+# - Checks if the shim settings for the high-res images are the same as
+#   for the SE-distortion-maps.  If not, it doesn't use TOPUP correction
+# - If more than one anatomical image is present, it checks to see if there are
+#   duplicates (e.g. normalized + original images) and if there are duplicates,
+#   it uses the original images.
 
 get_batch_options() {
     local arguments=($@)
 
     unset command_line_specified_study_folder
     unset command_line_specified_subj_list
+    unset command_line_specified_B0_distortion_correction_mode
     unset command_line_specified_run_local
 
     local index=0
@@ -23,7 +34,11 @@ get_batch_options() {
                 command_line_specified_subj_list=${argument/*=/""}
                 index=$(( index + 1 ))
                 ;;
-            --runlocal)
+            --B0distortionCorrectionMode=*)
+		command_line_specified_B0_distortion_correction_mode=${argument/*=/""}
+                index=$(( index + 1 ))
+                ;;
+	    --runlocal)
                 command_line_specified_run_local="TRUE"
                 index=$(( index + 1 ))
                 ;;
@@ -31,19 +46,148 @@ get_batch_options() {
     done
 }
 
+get_Input_TXw_Images() {
+  # Function to select the TXw (T1w or T2w) images to use as input to the PreFreeSurferPipeline
+  # given a list of runs.  It checks if some of these runs have the same acquisition times and,
+  # if there are some that do, picks the (first) non-normalized one.
+
+  # Transform argument list into an array, for easier element access:
+  local TXwImages=($@)
+
+  # Get the acquisition time for all TXw runs:
+  local unset acqTimes
+  local i=0;
+  while [ $i -lt ${#TXwImages[@]} ]; do
+      acqTimes[$i]=`read_header_param "AcquisitionTime" ${TXwImages[$i]%.nii*}.json`
+      i=$(($i+1)) 
+  done
+
+  local unset TXwInputImages
+
+  # Loop through the unique acquisition times:
+  sorted_unique_acqTimes=($(echo "${acqTimes[@]}" | tr ' ' '\n' | sort -u ));
+  local j=0;
+  while [ $j -lt ${#sorted_unique_acqTimes[@]} ]; do
+      # get indices of all runs with this acquisition time:
+      unset inds
+      local k=0
+      local i=0
+      while [ $i -lt ${#acqTimes[@]} ]; do
+	  if [ ${acqTimes[$i]} == ${sorted_unique_acqTimes[$j]} ]; then    # (acquisition times are strings)
+	      inds[$k]=$i
+	      k=$(($k+1))
+	  fi
+	  i=$(($i+1)) 
+      done
+
+      #echo "Unique acquisition times: ${sorted_unique_acqTimes[@]}, indices: ${inds[@]}" >> dummy.log
+
+      # Check how many runs have this acquisition time:
+      if [ ${#inds[@]} -gt 1 ]; then
+	  # If there is more than one run with this acquisition time
+	  # Loop through all these runs:
+          local k=0
+	  while [ $k -lt ${#inds[@]} ]; do
+	      # grab the "ImageType" entries in the corresponding .json:
+	      # we know it's going to be less than 20 lines for sure:
+	      local myImageType=`read_multiline_header_param "ImageType" ${TXwImages[${inds[$k]}]%.nii*}.json`
+
+	      # Check to see if the image type is Normalized:
+  	      # Discard the "Normalized" ones, and pick the first non-normalized:
+	      if ! [[ $myImageType == *\"NORM\"* ]]; then
+  		  # If it is NOT normalized:
+		  T1wInputImages[$j]=${TXwImages[${inds[$k]}]}
+		  break
+	      fi
+	      k=$(($k+1))
+	  done
+	  if [ -z ${TXwInputImages[$j]} ]; then
+	      # if all of them were "normalized" runs, just grab the first one:
+	      TXwInputImages[$j]=${TXwImages[${inds[0]}]}
+	  fi
+      else
+	  # If there is only one, keep as input to the FreeSurferPipeline:
+	  TXwInputImages[$j]=${TXwImages[${inds[0]}]}
+      fi
+
+      j=$(($j+1))
+  done
+
+  # The output:
+  echo "${TXwInputImages[@]}"
+  return 0
+}
+
+get_T1s() {
+
+  local T1wImages     # list with all high-res T1 images
+  if [ -d ${StudyFolder}/sub-${Subject}/ses-* ]; then
+    T1wImages=`ls ${StudyFolder}/sub-${Subject}/ses-*/anat/sub-${Subject}_ses-*_acq-highres_*_T1w.nii*`
+  else
+    T1wImages=`ls ${StudyFolder}/sub-${Subject}/anat/sub-${Subject}*_acq-highres_*_T1w.nii*`
+  fi
+  #echo "T1wImages: ${T1wImages[@]}"
+
+  # Get the unique ones (e.g.: normalized and unnormalized):
+  T1wInputImages=`get_Input_TXw_Images ${T1wImages[@]}`
+ 
+  echo "Found ${#T1wInputImages[@]} T1w Images for subject ${Subject}"
+  #echo "T1wInputImages: ${T1wInputImages[@]}"
+
+  return  
+}
+
+get_T2s() {
+
+  local T2wImages     # list with all high-res T2 images
+  if [ -d ${StudyFolder}/sub-${Subject}/ses-* ]; then
+    T2wImages=`ls ${StudyFolder}/sub-${Subject}/ses-*/anat/sub-${Subject}_ses-*_acq-highres_*_T2w.nii*`
+  else
+    T2wImages=`ls ${StudyFolder}/sub-${Subject}/anat/sub-${Subject}*_acq-highres_*_T2w.nii*`
+  fi
+  #echo "T2wImages: ${T2wImages[@]}"
+
+  # Get the unique ones (e.g.: normalized and unnormalized):
+  T2wInputImages=`get_Input_TXw_Images ${T2wImages[@]}`
+ 
+  echo "Found ${#T2wInputImages[@]} T2w Images for subject ${Subject}"
+  #echo "T2wInputImages: ${T2wInputImages[@]}"
+
+  return  
+}
+
+#####     #####     Main     #####     #####
+
 get_batch_options $@
 
+# Default options:
 StudyFolder="${HOME}/projects/Pipelines_ExampleData" #Location of Subject folders (named by subjectID)
 Subjlist="100307" #Space delimited list of subject IDs
+B0distortionCorrectionMode="NONE"
 #EnvironmentScript="${HOME}/projects/Pipelines/Examples/Scripts/SetUpHCPPipeline.sh" #Pipeline environment script
 EnvironmentScript="${HCPPIPEDIR}/Examples/Scripts/SetUpHCPPipeline.sh" #Pipeline environment script
 
 if [ -n "${command_line_specified_study_folder}" ]; then
     StudyFolder="${command_line_specified_study_folder}"
 fi
-
 if [ -n "${command_line_specified_subj_list}" ]; then
     Subjlist="${command_line_specified_subj_list}"
+fi
+if [ -n "${command_line_specified_B0_distortion_correction_mode}" ]; then
+
+    # check to make sure it is one of the allowed modes:
+    case ${command_line_specified_B0_distortion_correction_mode} in
+
+	"NONE"|"FIELDMAP"|"TOPUP")
+	    B0distortionCorrectionMode="${command_line_specified_B0_distortion_correction_mode}"
+	    ;;
+	*)
+	    echo "Valid B0distortionCorrectionMode are \"NONE\", \"FIELDMAP\" or \"TOPUP\"."
+	    echo "    \"${command_line_specified_B0_distortion_correction_mode}\" is not valid."
+	    echo "    Using \"NONE\"."
+	    B0distortionCorrectionMode="NONE"
+	    ;;
+    esac
 fi
 
 # Requirements for this script
@@ -52,6 +196,8 @@ fi
 
 #Set up pipeline environment variables and software
 . ${EnvironmentScript}
+source ${HCPPIPEDIR_Global}/get_params_from_json.shlib   #Get parameters from json file.
+
 
 # Log the originating call
 echo "$@"
@@ -70,14 +216,11 @@ PRINTCOM=""
 #Scripts called by this script do NOT assume anything about the form of the input names or paths.
 #This batch script assumes the HCP raw data naming convention, e.g.
 
-#	${StudyFolder}/${Subject}/unprocessed/3T/T1w_MPR1/${Subject}_3T_T1w_MPR1.nii.gz
-#	${StudyFolder}/${Subject}/unprocessed/3T/T1w_MPR2/${Subject}_3T_T1w_MPR2.nii.gz
+#	${StudyFolder}/sub-${Subject}[/ses-${session}]/anat/sub-${Subject}[_ses-${session}]_*[run-<index>]_T1w.nii[.gz]
+#       ${StudyFolder}/sub-${Subject}[/ses-${session}]/anat/sub-${Subject}[_ses-${session}]_*[run-<index>]_T2w.nii[.gz]
 
-#	${StudyFolder}/${Subject}/unprocessed/3T/T2w_SPC1/${Subject}_3T_T2w_SPC1.nii.gz
-#	${StudyFolder}/${Subject}/unprocessed/3T/T2w_SPC2/${Subject}_3T_T2w_SPC2.nii.gz
+#       ${StudyFolder}/sub-${Subject}[/ses-${session}]/fmap/sub-${Subject}[_ses-${session}]_*_dir-AP_[run-<index>]_epi.nii[.gz]
 
-#	${StudyFolder}/${Subject}/unprocessed/3T/T1w_MPR1/${Subject}_3T_FieldMap_Magnitude.nii.gz
-#	${StudyFolder}/${Subject}/unprocessed/3T/T1w_MPR1/${Subject}_3T_FieldMap_Phase.nii.gz
 
 #Change Scan Settings: Sample Spacings, and $UnwarpDir to match your images
 #These are set to match the HCP Protocol by default
@@ -96,45 +239,113 @@ PRINTCOM=""
 
 
 for Subject in $Subjlist ; do
-  echo $Subject
+  echo sub-$Subject
   
-  #Input Images
-  #Detect Number of T1w Images
-  numT1ws=`ls ${StudyFolder}/${Subject}/unprocessed/3T | grep T1w_MPR | wc -l`
-  echo "Found ${numT1ws} T1w Images for subject ${Subject}"
-  T1wInputImages=""
-  i=1
-  while [ $i -le $numT1ws ] ; do
-    T1wInputImages=`echo "${T1wInputImages}${StudyFolder}/${Subject}/unprocessed/3T/T1w_MPR${i}/${Subject}_3T_T1w_MPR${i}.nii.gz@"`
-    i=$(($i+1))
-  done
+  ###   Input Images   ###
+  # Check to see if there are session subfolders:
+  if [ -d ${StudyFolder}/sub-${Subject}/ses-* ]; then
+    sesFolders=`ls -d ${StudyFolder}/sub-${Subject}/ses-*`
+  else
+    sesFolders=${StudyFolder}/sub-${Subject}
+  fi
+
+  # Get T1 images (they will be stored in the variable "T1wInputImages")
+  get_T1s $Subject
   
-  #Detect Number of T2w Images
-  numT2ws=`ls ${StudyFolder}/${Subject}/unprocessed/3T | grep T2w_SPC | wc -l`
-  echo "Found ${numT2ws} T2w Images for subject ${Subject}"
-  T2wInputImages=""
-  i=1
-  while [ $i -le $numT2ws ] ; do
-    T2wInputImages=`echo "${T2wInputImages}${StudyFolder}/${Subject}/unprocessed/3T/T2w_SPC${i}/${Subject}_3T_T2w_SPC${i}.nii.gz@"`
-    i=$(($i+1))
-  done
-
-  #Readout Distortion Correction:
-  AvgrdcSTRING="FIELDMAP" #Averaging and readout distortion correction methods: "NONE" = average any repeats with no readout correction "FIELDMAP" = average any repeats and use field map for readout correction "TOPUP" = use spin echo field map
+  # Get T2 images (they will be stored in the variable "T2wInputImages")
+  get_T2s $Subject
   
-  #Using Regular Gradient Echo Field Maps (same as for fMRIVolume pipeline)
-  MagnitudeInputName="${StudyFolder}/${Subject}/unprocessed/3T/T1w_MPR1/${Subject}_3T_FieldMap_Magnitude.nii.gz" #Expects 4D magitude volume with two 3D timepoints or "NONE" if not used
-  PhaseInputName="${StudyFolder}/${Subject}/unprocessed/3T/T1w_MPR1/${Subject}_3T_FieldMap_Phase.nii.gz" #Expects 3D phase difference volume or "NONE" if not used
-  TE="2.46" #2.46ms for 3T, 1.02ms for 7T, set to NONE if not using
+  
+  ###    B0 Distortion Correction    ###
 
-  #Using Spin Echo Field Maps (same as for fMRIVolume pipeline)
-  SpinEchoPhaseEncodeNegative="NONE" #For the spin echo field map volume with a negative phase encoding direction (LR in HCP data, AP in 7T HCP data), set to NONE if using regular FIELDMAP
-  SpinEchoPhaseEncodePositive="NONE" #For the spin echo field map volume with a positive phase encoding direction (RL in HCP data, PA in 7T HCP data), set to NONE if using regular FIELDMAP
-  DwellTime="NONE" #Echo Spacing or Dwelltime of spin echo EPI MRI image, set to NONE if not used. Dwelltime = 1/(BandwidthPerPixelPhaseEncode * # of phase encoding samples): DICOM field (0019,1028) = BandwidthPerPixelPhaseEncode, DICOM field (0051,100b) AcquisitionMatrixText first value (# of phase encoding samples).  On Siemens, iPAT/GRAPPA factors have already been accounted for.  
-  SEUnwarpDir="NONE" #x or y (minus or not does not matter) "NONE" if not used 
-  TopupConfig="NONE" #Config for topup or "NONE" if not used
+  # AvgrdcSTRING: Averaging and readout distortion correction methods:
+  #   - "NONE" = average any repeats with no readout correction
+  #   - "FIELDMAP" = average any repeats and use field map for readout correction
+  #   - "TOPUP" = use spin echo field map
+  # For now, we are going to use a pair of spin-echo distortion scan (Topup method):
+  AvgrdcSTRING=$B0distortionCorrectionMode
 
-  #Templates
+  case $AvgrdcSTRING in
+
+      "NONE")
+	  #Using Regular Gradient Echo Field Maps (same as for fMRIVolume pipeline)
+	  echo "user chose no B0 correction"
+	  MagnitudeInputName="NONE"
+	  PhaseInputName="NONE"
+	  TE="NONE"
+	  SpinEchoPhaseEncodeNegative="NONE"
+	  SpinEchoPhaseEncodePositive="NONE"
+	  DwellTime="NONE"
+	  SEUnwarpDir="NONE"
+	  TopupConfig="NONE"
+	  ;;
+
+      "FIELDMAP")
+	  #Using Regular Gradient Echo Field Maps (same as for fMRIVolume pipeline)
+	  echo "user chose Fieldmap B0 correction"
+	  MagnitudeInputName="${StudyFolder}/${Subject}/unprocessed/3T/T1w_MPR1/${Subject}_3T_FieldMap_Magnitude.nii.gz" #Expects 4D magitude volume with two 3D timepoints
+	  PhaseInputName="${StudyFolder}/${Subject}/unprocessed/3T/T1w_MPR1/${Subject}_3T_FieldMap_Phase.nii.gz" #Expects 3D phase difference volume
+	  TE="2.46" # In ms (HCP 2.46ms for 3T, 1.02ms for 7T)
+	  SpinEchoPhaseEncodeNegative="NONE"
+	  SpinEchoPhaseEncodePositive="NONE"
+	  DwellTime="NONE"
+	  SEUnwarpDir="NONE"
+	  TopupConfig="NONE"
+	  ;;
+
+      "TOPUP")
+	  #Using Spin Echo Field Maps (same as for fMRIVolume pipeline)
+	  echo "user chose Topup B0 correction"
+
+	  if [ -d ${StudyFolder}/sub-${Subject}/ses-* ]; then
+	      #volume with a negative/positive phase encoding direction:
+	      SpinEchoPhaseEncodeNegative=`ls ${StudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_dir-AP*.nii*`
+	      SpinEchoPhaseEncodePositive=`ls ${StudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_dir-PA*.nii*`
+	  else
+	      #volume with a negative/positive phase encoding direction:
+	      SpinEchoPhaseEncodeNegative=`ls ${StudyFolder}/sub-${Subject}/fmap/sub-${Subject}*_dir-AP*.nii*`
+	      SpinEchoPhaseEncodePositive=`ls ${StudyFolder}/sub-${Subject}/fmap/sub-${Subject}*_dir-PA*.nii*`
+	  fi
+	  # TO-DO: if there is more than one, pick which one (maybe the one closest in time?)
+	  # For now, just keep the first one:
+	  SpinEchoPhaseEncodeNegative=`ls ${SpinEchoPhaseEncodeNegative%%.nii*}.nii*`
+	  SpinEchoPhaseEncodePositive=`ls ${SpinEchoPhaseEncodePositive%%.nii*}.nii*`
+
+	  # Before applying blindly, check that the "ShimSetting" for the SE images was
+	  #   identical to that of the high-res images (check with the first high-res):
+	  shimSENeg=`read_multiline_header_param "ShimSetting" ${SpinEchoPhaseEncodeNegative%.nii*}.json`
+	  shimT1w=`read_multiline_header_param "ShimSetting" ${T1wInputImages[0]%.nii*}.json`
+	  shimT2w=`read_multiline_header_param "ShimSetting" ${T2wInputImages[0]%.nii*}.json`
+	  #echo "$shimSENeg == $shimHires?"
+	  if [ ! "$shimSENeg" == "$shimT1w" ] || [ ! "$shimSENeg" == "$shimT2w" ]; then
+	      echo "WARNING: Shims settings for anatomical images and SE Distortion Maps are not the same."
+	      echo "WARNING: We're not doing B0 correction for Subject $Subject"
+	      MagnitudeInputName="NONE"
+	      PhaseInputName="NONE"
+	      TE="NONE"
+	      SpinEchoPhaseEncodeNegative="NONE"
+	      SpinEchoPhaseEncodePositive="NONE"
+	      DwellTime="NONE"
+	      SEUnwarpDir="NONE"
+	      TopupConfig="NONE"
+	  else
+	      DwellTime=`get_DwellTime ${SpinEchoPhaseEncodeNegative%.nii*}.json`
+
+	      # SEUnwarpDir: x or y (minus or not does not matter) "NONE" if not used
+	      myTmp=`read_header_param "PhaseEncodingDirection" ${SpinEchoPhaseEncodeNegative%.nii*}.json`
+	      if [ ${myTmp%,} == \"i\" ] || [ ${myTmp%,} == \"i-\" ]; then
+		  SEUnwarpDir="x"
+	      elif [ ${myTmp%,} == \"j\" ] || [ ${myTmp%,} == \"j-\" ]; then
+		  SEUnwarpDir="y"
+	      fi
+	      
+	      TopupConfig="b02b0.cnf" #Config for topup or "NONE" if not used
+	  fi
+	  ;;
+  esac
+
+
+  ###   Templates   ###
   T1wTemplate="${HCPPIPEDIR_Templates}/MNI152_T1_0.7mm.nii.gz" #Hires T1w MNI template
   T1wTemplateBrain="${HCPPIPEDIR_Templates}/MNI152_T1_0.7mm_brain.nii.gz" #Hires brain extracted MNI template
   T1wTemplate2mm="${HCPPIPEDIR_Templates}/MNI152_T1_2mm.nii.gz" #Lowres T1w MNI template
@@ -144,10 +355,19 @@ for Subject in $Subjlist ; do
   TemplateMask="${HCPPIPEDIR_Templates}/MNI152_T1_0.7mm_brain_mask.nii.gz" #Hires MNI brain mask template
   Template2mmMask="${HCPPIPEDIR_Templates}/MNI152_T1_2mm_brain_mask_dil.nii.gz" #Lowres MNI brain mask template
 
-  #Structural Scan Settings (set all to NONE if not doing readout distortion correction)
-  T1wSampleSpacing="0.0000074" #DICOM field (0019,1018) in s or "NONE" if not used
-  T2wSampleSpacing="0.0000021" #DICOM field (0019,1018) in s or "NONE" if not used
-  UnwarpDir="z" #z appears to be best or "NONE" if not used
+
+  ###   Structural Scan Settings   ###
+  # (set all to NONE if not doing readout distortion correction)
+  # We get it from the corresponding .json file:
+
+  T1wSampleSpacing=`read_header_param "DwellTime" ${T1wInputImages[0]%.nii*}.json`
+  #T1wSampleSpacing=`echo ${T1wSampleSpacing} | awk '{ print sprintf("%.9f", $1); }'`
+
+  T2wSampleSpacing=`read_header_param "DwellTime" ${T2wInputImages[0]%.nii*}.json`
+  #T2wSampleSpacing=`echo ${T2wSampleSpacing} | awk '{ print sprintf("%.9f", $1); }'`
+  
+  UnwarpDir="z" #z appears to be best or "NONE" if not used  -> this in only true for sagittal slices, for which the readout is along H>F (=z)
+  # TO-DO: get the readout direction (as x, y or z)
 
   #Other Config Settings
   BrainSize="150" #BrainSize in mm, 150 for humans
