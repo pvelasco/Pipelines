@@ -13,4 +13,4 @@
 *.grad
 
 # Ignore FreeSurfer's license:
-FS_license.txt
+Docker/FS_license.txt
