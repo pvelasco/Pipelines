@@ -320,6 +320,7 @@ for Subject in $Subjlist ; do
 	  if [ ! "$shimSENeg" == "$shimT1w" ] || [ ! "$shimSENeg" == "$shimT2w" ]; then
 	      echo "WARNING: Shims settings for anatomical images and SE Distortion Maps are not the same."
 	      echo "WARNING: We're not doing B0 correction for Subject $Subject"
+	      AvgrdcSTRING="NONE"
 	      MagnitudeInputName="NONE"
 	      PhaseInputName="NONE"
 	      TE="NONE"
