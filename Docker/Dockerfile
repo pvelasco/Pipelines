@@ -62,40 +62,39 @@ RUN yum -y update \
 # Download FS_v5.3.0 for HCP from the official repo and untar to ${INSTALL_FOLDER}:
 # Note: I'm getting rid of 'lib/cuda' and 'bin/*_cuda' because it requires specific cuda
 #       libraries, which I don't want to install for now.
+ENV FREESURFER_HOME=${INSTALL_FOLDER}/freesurfer
 RUN curl -sSL ftp://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/5.3.0-HCP/freesurfer-Linux-centos6_x86_64-stable-pub-v5.3.0-HCP.tar.gz | tar xz -C ${INSTALL_FOLDER} \
     # remove some big folders that we don't need: \
-    && rm -fr ${INSTALL_FOLDER}/freesurfer/trctrain/* \
-    && rm -fr ${INSTALL_FOLDER}/freesurfer/lib/cuda \
-    && rm -fr ${INSTALL_FOLDER}/freesurfer/bin/*_cuda \
-    && rm -fr ${INSTALL_FOLDER}/freesurfer/subjects/bert \
-    && rm -fr ${INSTALL_FOLDER}/freesurfer/subjects/cvs_avg35* \
+    && rm -fr ${FREESURFER_HOME}/trctrain/* \
+    && rm -fr ${FREESURFER_HOME}/lib/cuda \
+    && rm -fr ${FREESURFER_HOME}/bin/*_cuda \
+    && rm -fr ${FREESURFER_HOME}/subjects/bert \
+    && rm -fr ${FREESURFER_HOME}/subjects/cvs_avg35* \
     # remove fsaverage3, fsaverage4,..., but don't remove "fsaverage"!!! \
-    && rm -fr ${INSTALL_FOLDER}/freesurfer/subjects/fsaverage? \
-    && rm -fr ${INSTALL_FOLDER}/freesurfer/subjects/fsaverage_sym \
-    && rm -fr ${INSTALL_FOLDER}/freesurfer/subjects/V1_average \
-    && rm -fr ${INSTALL_FOLDER}/freesurfer/subjects/sample-00?.mgz \
-    && rm -fr ${INSTALL_FOLDER}/freesurfer/average/mult-comp-cor
+    && rm -fr ${FREESURFER_HOME}/subjects/fsaverage? \
+    && rm -fr ${FREESURFER_HOME}/subjects/fsaverage_sym \
+    && rm -fr ${FREESURFER_HOME}/subjects/V1_average \
+    && rm -fr ${FREESURFER_HOME}/subjects/sample-00?.mgz \
+    && rm -fr ${FREESURFER_HOME}/average/mult-comp-cor
 
 # Configure license 
-COPY FS_license.txt ${INSTALL_FOLDER}/freesurfer/license.txt
+COPY FS_license.txt ${FREESURFER_HOME}/license.txt
+RUN chmod a+r ${FREESURFER_HOME}/license.txt
 
 # Configure basic freesurfer ENV:
 ENV OS=Linux \
-    FREESURFER_HOME=${INSTALL_FOLDER}/freesurfer \
     FS_OVERRIDE=0 \
     FIX_VERTEX_AREA=  \
-    FSF_OUTPUT_FORMAT=nii.gz
-# (Note: the following cannot be included in the same one-line with
-#        the above, since it depends on the previous variables)
-ENV MNI_DIR=${FREESURFER_HOME}/mni \
+    FSF_OUTPUT_FORMAT=nii.gz \
+    MNI_DIR=${FREESURFER_HOME}/mni \
     LOCAL_DIR=${FREESURFER_HOME}/local \
-    FSFAST_HOME=${FREESURFER_HOME}/fsfast
+    FSFAST_HOME=${FREESURFER_HOME}/fsfast \
+    FMRI_ANALYSIS_DIR=${FREESURFER_HOME}/fsfast
 # (Note: the following cannot be included in the same one-line with
 #        the above, since it depends on the previous variables)
 ENV MINC_BIN_DIR=${MNI_DIR}/bin \
     MINC_LIB_DIR=${MNI_DIR}/lib \
     MNI_DATAPATH=${MNI_DIR}/data \
-    FMRI_ANALYSIS_DIR=${FREESURFER_HOME}/fsfast \
     PERL5LIB=${MNI_DIR}/lib/perl5/5.8.5 \
     MNI_PERL5LIB=${MNI_DIR}/lib/perl5/5.8.5 \
     PATH=${FREESURFER_HOME}/bin:${FREESURFER_HOME}/fsfast/bin:${FREESURFER_HOME}/tktools:${FREESURFER_HOME}/mni/bin:${PATH} \
@@ -138,8 +137,10 @@ RUN curl -sSL https://github.com/Washington-University/gradunwarp/archive/v1.0.3
     # (Note that ${HCPPIPEDIR} is not defined for this layer!)
 #RUN sed -i 's|--mctype=\${MCType}|& \&|' ${INSTALL_FOLDER}/*/Examples/Scripts/GenericfMRIVolumeProcessingPipelineBatch.sh
 
+WORKDIR	 /tmp
 
 
+###########
 
 # Set up the HCP Pipeline environment:
 # If you need to modify the SetUp file:
