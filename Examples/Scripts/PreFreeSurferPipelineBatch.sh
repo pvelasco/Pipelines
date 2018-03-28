@@ -214,7 +214,7 @@ PRINTCOM=""
 ########################################## INPUTS ########################################## 
 
 #Scripts called by this script do NOT assume anything about the form of the input names or paths.
-#This batch script assumes the HCP raw data naming convention, e.g.
+#This batch script assumes BIDS data organization and naming convention, e.g.:
 
 #	${StudyFolder}/sub-${Subject}[/ses-${session}]/anat/sub-${Subject}[_ses-${session}]_*[run-<index>]_T1w.nii[.gz]
 #       ${StudyFolder}/sub-${Subject}[/ses-${session}]/anat/sub-${Subject}[_ses-${session}]_*[run-<index>]_T2w.nii[.gz]
@@ -222,13 +222,11 @@ PRINTCOM=""
 #       ${StudyFolder}/sub-${Subject}[/ses-${session}]/fmap/sub-${Subject}[_ses-${session}]_*_dir-AP_[run-<index>]_epi.nii[.gz]
 
 
-#Change Scan Settings: Sample Spacings, and $UnwarpDir to match your images
-#These are set to match the HCP Protocol by default
+#Scan Settings (Sample Spacings, and $UnwarpDir) are read from *.json sidecar files
 
 #You have the option of using either gradient echo field maps or spin echo field maps to 
 #correct your structural images for readout distortion, or not to do this correction at all
-#Change either the gradient echo field map or spin echo field map scan settings to match your data
-#The default is to use gradient echo field maps using the HCP Protocol
+#
 
 #If using gradient distortion correction, use the coefficents from your scanner
 #The HCP gradient distortion coefficents are only available through Siemens
@@ -281,11 +279,40 @@ for Subject in $Subjlist ; do
 	  ;;
 
       "FIELDMAP")
-	  #Using Regular Gradient Echo Field Maps (same as for fMRIVolume pipeline)
+	  #Using Regular Gradient Echo Field Maps:
 	  echo "user chose Fieldmap B0 correction"
-	  MagnitudeInputName="${StudyFolder}/${Subject}/unprocessed/3T/T1w_MPR1/${Subject}_3T_FieldMap_Magnitude.nii.gz" #Expects 4D magitude volume with two 3D timepoints
-	  PhaseInputName="${StudyFolder}/${Subject}/unprocessed/3T/T1w_MPR1/${Subject}_3T_FieldMap_Phase.nii.gz" #Expects 3D phase difference volume
-	  TE="2.46" # In ms (HCP 2.46ms for 3T, 1.02ms for 7T)
+
+	  if [ -d ${StudyFolder}/sub-${Subject}/ses-* ]; then
+	      MagnitudeInputName=`ls ${StudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_acq-GRE*_magnitude*.nii*` #Expects 3D or 4D (two 3D timepoints) magitude volume
+	      PhaseInputName=`ls ${StudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_acq-GRE*_phasediff*.nii*` #Expects 3D phase difference volume
+	  else
+	      MagnitudeInputName=`ls ${StudyFolder}/sub-${Subject}/fmap/sub-${Subject}_acq-GRE*_magnitude*.nii*` #Expects 4D magitude volume with two 3D timepoints
+	      PhaseInputName=`ls ${StudyFolder}/sub-${Subject}/fmap/sub-${Subject}_acq-GRE*_phasediff*.nii*` #Expects 3D phase difference volume
+	  fi
+	  # TO-DO: if there is more than one, pick which one (maybe the one closest in time?)
+	  # For now, just keep the first one:
+	  MagnitudeInputName=`ls ${MagnitudeInputName%%.nii*}.nii*`
+	  PhaseInputName=`ls ${PhaseInputName%%.nii*}.nii*`
+
+	  ##   Check shims consistency   ##
+	  
+	  # Before applying blindly, check that the "ShimSetting" for the fmap images was
+	  #   identical to that of the high-res images (check with the first high-res of each type):
+	  shimGRE=`read_multiline_header_param "ShimSetting" ${MagnitudeInputName%.nii*}.json`
+	  shimT1w=`read_multiline_header_param "ShimSetting" ${T1wInputImages[0]%.nii*}.json`
+	  shimT2w=`read_multiline_header_param "ShimSetting" ${T2wInputImages[0]%.nii*}.json`
+	  #echo "$shimGRE == $shimHires?"
+	  if [ ! "$shimGRE" == "$shimT1w" ] || [ ! "$shimGRE" == "$shimT2w" ]; then
+	      echo "WARNING: Shims settings for anatomical images and GRE Fiel Maps are not the same."
+	      echo "WARNING: We're not doing B0 correction for Subject $Subject"
+	      AvgrdcSTRING="NONE"
+	      MagnitudeInputName="NONE"
+	      PhaseInputName="NONE"
+	      TE="NONE"
+	  else
+	      TE=`get_DeltaTE ${PhaseInputName%.nii*}.json`
+	  fi
+	  
 	  SpinEchoPhaseEncodeNegative="NONE"
 	  SpinEchoPhaseEncodePositive="NONE"
 	  DwellTime="NONE"
@@ -311,6 +338,8 @@ for Subject in $Subjlist ; do
 	  SpinEchoPhaseEncodeNegative=`ls ${SpinEchoPhaseEncodeNegative%%.nii*}.nii*`
 	  SpinEchoPhaseEncodePositive=`ls ${SpinEchoPhaseEncodePositive%%.nii*}.nii*`
 
+	  ##   Check shims consistency   ##
+	  
 	  # Before applying blindly, check that the "ShimSetting" for the SE images was
 	  #   identical to that of the high-res images (check with the first high-res):
 	  shimSENeg=`read_multiline_header_param "ShimSetting" ${SpinEchoPhaseEncodeNegative%.nii*}.json`
