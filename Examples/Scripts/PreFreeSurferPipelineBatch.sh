@@ -2,6 +2,7 @@
 
 # Changes w.r.t. the official HCP Pipelines v.3.4.0:
 # - It assumes data organization and file names follow BIDS convention
+# - Separated folder for input (BIDS) and output (processed) images
 # - It reads the DwellTime, PE direction, etc. from the .json files
 # - Added "B0distortionCorrectionMode" as an option
 # - Checks if the shim settings for the high-res images are the same as
@@ -13,7 +14,8 @@
 get_batch_options() {
     local arguments=($@)
 
-    unset command_line_specified_study_folder
+    unset command_line_specified_BIDS_study_folder
+    unset command_line_specified_output_study_folder
     unset command_line_specified_subj_list
     unset command_line_specified_B0_distortion_correction_mode
     unset command_line_specified_run_local
@@ -26,8 +28,12 @@ get_batch_options() {
         argument=${arguments[index]}
 
         case ${argument} in
-            --StudyFolder=*)
-                command_line_specified_study_folder=${argument/*=/""}
+            --BIDSStudyFolder=*)
+                command_line_specified_BIDS_study_folder=${argument/*=/""}
+                index=$(( index + 1 ))
+                ;;
+            --OutputStudyFolder=*)
+                command_line_specified_output_study_folder=${argument/*=/""}
                 index=$(( index + 1 ))
                 ;;
             --Subjlist=*)
@@ -121,10 +127,10 @@ get_Input_TXw_Images() {
 get_T1s() {
 
   local T1wImages     # list with all high-res T1 images
-  if [ -d ${StudyFolder}/sub-${Subject}/ses-* ]; then
-    T1wImages=`ls ${StudyFolder}/sub-${Subject}/ses-*/anat/sub-${Subject}_ses-*_acq-highres_*_T1w.nii*`
+  if [ -d ${BIDSStudyFolder}/sub-${Subject}/ses-* ]; then
+    T1wImages=`ls ${BIDSStudyFolder}/sub-${Subject}/ses-*/anat/sub-${Subject}_ses-*_acq-highres_*_T1w.nii*`
   else
-    T1wImages=`ls ${StudyFolder}/sub-${Subject}/anat/sub-${Subject}*_acq-highres_*_T1w.nii*`
+    T1wImages=`ls ${BIDSStudyFolder}/sub-${Subject}/anat/sub-${Subject}*_acq-highres_*_T1w.nii*`
   fi
   #echo "T1wImages: ${T1wImages[@]}"
 
@@ -140,10 +146,10 @@ get_T1s() {
 get_T2s() {
 
   local T2wImages     # list with all high-res T2 images
-  if [ -d ${StudyFolder}/sub-${Subject}/ses-* ]; then
-    T2wImages=`ls ${StudyFolder}/sub-${Subject}/ses-*/anat/sub-${Subject}_ses-*_acq-highres_*_T2w.nii*`
+  if [ -d ${BIDSStudyFolder}/sub-${Subject}/ses-* ]; then
+    T2wImages=`ls ${BIDSStudyFolder}/sub-${Subject}/ses-*/anat/sub-${Subject}_ses-*_acq-highres_*_T2w.nii*`
   else
-    T2wImages=`ls ${StudyFolder}/sub-${Subject}/anat/sub-${Subject}*_acq-highres_*_T2w.nii*`
+    T2wImages=`ls ${BIDSStudyFolder}/sub-${Subject}/anat/sub-${Subject}*_acq-highres_*_T2w.nii*`
   fi
   #echo "T2wImages: ${T2wImages[@]}"
 
@@ -161,14 +167,19 @@ get_T2s() {
 get_batch_options $@
 
 # Default options:
-StudyFolder="${HOME}/projects/Pipelines_ExampleData" #Location of Subject folders (named by subjectID)
+BIDSStudyFolder="${HOME}/projects/Pipelines_ExampleData" #Location of Subject folders (named by sub-subjectID)
 Subjlist="100307" #Space delimited list of subject IDs
 B0distortionCorrectionMode="NONE"
 #EnvironmentScript="${HOME}/projects/Pipelines/Examples/Scripts/SetUpHCPPipeline.sh" #Pipeline environment script
 EnvironmentScript="${HCPPIPEDIR}/Examples/Scripts/SetUpHCPPipeline.sh" #Pipeline environment script
 
-if [ -n "${command_line_specified_study_folder}" ]; then
-    StudyFolder="${command_line_specified_study_folder}"
+if [ -n "${command_line_specified_BIDS_study_folder}" ]; then
+    BIDSStudyFolder="${command_line_specified_BIDS_study_folder}"
+fi
+# Default option for Output folder:
+OutputStudyFolder=$BIDSStudyFolder/Processed
+if [ -n "${command_line_specified_output_study_folder}" ]; then
+    OutputStudyFolder="${command_line_specified_output_study_folder}"
 fi
 if [ -n "${command_line_specified_subj_list}" ]; then
     Subjlist="${command_line_specified_subj_list}"
@@ -216,10 +227,10 @@ PRINTCOM=""
 #Scripts called by this script do NOT assume anything about the form of the input names or paths.
 #This batch script assumes BIDS data organization and naming convention, e.g.:
 
-#	${StudyFolder}/sub-${Subject}[/ses-${session}]/anat/sub-${Subject}[_ses-${session}]_*[run-<index>]_T1w.nii[.gz]
-#       ${StudyFolder}/sub-${Subject}[/ses-${session}]/anat/sub-${Subject}[_ses-${session}]_*[run-<index>]_T2w.nii[.gz]
+#	${BIDSStudyFolder}/sub-${Subject}[/ses-${session}]/anat/sub-${Subject}[_ses-${session}]_*[run-<index>]_T1w.nii[.gz]
+#       ${BIDSStudyFolder}/sub-${Subject}[/ses-${session}]/anat/sub-${Subject}[_ses-${session}]_*[run-<index>]_T2w.nii[.gz]
 
-#       ${StudyFolder}/sub-${Subject}[/ses-${session}]/fmap/sub-${Subject}[_ses-${session}]_*_dir-AP_[run-<index>]_epi.nii[.gz]
+#       ${BIDSStudyFolder}/sub-${Subject}[/ses-${session}]/fmap/sub-${Subject}[_ses-${session}]_*_dir-AP_[run-<index>]_epi.nii[.gz]
 
 
 #Scan Settings (Sample Spacings, and $UnwarpDir) are read from *.json sidecar files
@@ -241,10 +252,10 @@ for Subject in $Subjlist ; do
   
   ###   Input Images   ###
   # Check to see if there are session subfolders:
-  if [ -d ${StudyFolder}/sub-${Subject}/ses-* ]; then
-    sesFolders=`ls -d ${StudyFolder}/sub-${Subject}/ses-*`
+  if [ -d ${BIDSStudyFolder}/sub-${Subject}/ses-* ]; then
+    sesFolders=`ls -d ${BIDSStudyFolder}/sub-${Subject}/ses-*`
   else
-    sesFolders=${StudyFolder}/sub-${Subject}
+    sesFolders=${BIDSStudyFolder}/sub-${Subject}
   fi
 
   # Get T1 images (they will be stored in the variable "T1wInputImages")
@@ -282,12 +293,12 @@ for Subject in $Subjlist ; do
 	  #Using Regular Gradient Echo Field Maps:
 	  echo "user chose Fieldmap B0 correction"
 
-	  if [ -d ${StudyFolder}/sub-${Subject}/ses-* ]; then
-	      MagnitudeInputName=`ls ${StudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_acq-GRE*_magnitude*.nii*` #Expects 3D or 4D (two 3D timepoints) magitude volume
-	      PhaseInputName=`ls ${StudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_acq-GRE*_phasediff*.nii*` #Expects 3D phase difference volume
+	  if [ -d ${BIDSStudyFolder}/sub-${Subject}/ses-* ]; then
+	      MagnitudeInputName=`ls ${BIDSStudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_acq-GRE*_magnitude*.nii*` #Expects 3D or 4D (two 3D timepoints) magitude volume
+	      PhaseInputName=`ls ${BIDSStudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_acq-GRE*_phasediff*.nii*` #Expects 3D phase difference volume
 	  else
-	      MagnitudeInputName=`ls ${StudyFolder}/sub-${Subject}/fmap/sub-${Subject}_acq-GRE*_magnitude*.nii*` #Expects 4D magitude volume with two 3D timepoints
-	      PhaseInputName=`ls ${StudyFolder}/sub-${Subject}/fmap/sub-${Subject}_acq-GRE*_phasediff*.nii*` #Expects 3D phase difference volume
+	      MagnitudeInputName=`ls ${BIDSStudyFolder}/sub-${Subject}/fmap/sub-${Subject}_acq-GRE*_magnitude*.nii*` #Expects 4D magitude volume with two 3D timepoints
+	      PhaseInputName=`ls ${BIDSStudyFolder}/sub-${Subject}/fmap/sub-${Subject}_acq-GRE*_phasediff*.nii*` #Expects 3D phase difference volume
 	  fi
 	  # TO-DO: if there is more than one, pick which one (maybe the one closest in time?)
 	  # For now, just keep the first one:
@@ -303,7 +314,7 @@ for Subject in $Subjlist ; do
 	  shimT2w=`read_multiline_header_param "ShimSetting" ${T2wInputImages[0]%.nii*}.json`
 	  #echo "$shimGRE == $shimHires?"
 	  if [ ! "$shimGRE" == "$shimT1w" ] || [ ! "$shimGRE" == "$shimT2w" ]; then
-	      echo "WARNING: Shims settings for anatomical images and GRE Fiel Maps are not the same."
+	      echo "WARNING: Shims settings for anatomical images and GRE Fieldmaps are not the same."
 	      echo "WARNING: We're not doing B0 correction for Subject $Subject"
 	      AvgrdcSTRING="NONE"
 	      MagnitudeInputName="NONE"
@@ -324,14 +335,14 @@ for Subject in $Subjlist ; do
 	  #Using Spin Echo Field Maps (same as for fMRIVolume pipeline)
 	  echo "user chose Topup B0 correction"
 
-	  if [ -d ${StudyFolder}/sub-${Subject}/ses-* ]; then
+	  if [ -d ${BIDSStudyFolder}/sub-${Subject}/ses-* ]; then
 	      #volume with a negative/positive phase encoding direction:
-	      SpinEchoPhaseEncodeNegative=`ls ${StudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_dir-AP*.nii*`
-	      SpinEchoPhaseEncodePositive=`ls ${StudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_dir-PA*.nii*`
+	      SpinEchoPhaseEncodeNegative=`ls ${BIDSStudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_dir-AP*.nii*`
+	      SpinEchoPhaseEncodePositive=`ls ${BIDSStudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_dir-PA*.nii*`
 	  else
 	      #volume with a negative/positive phase encoding direction:
-	      SpinEchoPhaseEncodeNegative=`ls ${StudyFolder}/sub-${Subject}/fmap/sub-${Subject}*_dir-AP*.nii*`
-	      SpinEchoPhaseEncodePositive=`ls ${StudyFolder}/sub-${Subject}/fmap/sub-${Subject}*_dir-PA*.nii*`
+	      SpinEchoPhaseEncodeNegative=`ls ${BIDSStudyFolder}/sub-${Subject}/fmap/sub-${Subject}*_dir-AP*.nii*`
+	      SpinEchoPhaseEncodePositive=`ls ${BIDSStudyFolder}/sub-${Subject}/fmap/sub-${Subject}*_dir-PA*.nii*`
 	  fi
 	  # TO-DO: if there is more than one, pick which one (maybe the one closest in time?)
 	  # For now, just keep the first one:
@@ -414,7 +425,7 @@ for Subject in $Subjlist ; do
   fi
 
   ${queuing_command} ${HCPPIPEDIR}/PreFreeSurfer/PreFreeSurferPipeline.sh \
-      --path="$StudyFolder" \
+      --path="$OutputStudyFolder" \
       --subject="$Subject" \
       --t1="$T1wInputImages" \
       --t2="$T2wInputImages" \
@@ -445,7 +456,7 @@ for Subject in $Subjlist ; do
       
   # The following lines are used for interactive debugging to set the positional parameters: $1 $2 $3 ...
 
-  echo "set -- --path=${StudyFolder} \
+  echo "set -- --path=${OutputStudyFolder} \
       --subject=${Subject} \
       --t1=${T1wInputImages} \
       --t2=${T2wInputImages} \

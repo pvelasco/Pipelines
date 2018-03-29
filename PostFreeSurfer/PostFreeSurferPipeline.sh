@@ -17,8 +17,8 @@ set -e
 #  Load Function Libraries
 # --------------------------------------------------------------------------------
 
-source $HCPPIPEDIR/global/scripts/log.shlib  # Logging related functions
-source $HCPPIPEDIR/global/scripts/opts.shlib # Command line option functions
+source ${HCPPIPEDIR_Global}/log.shlib  # Logging related functions
+source ${HCPPIPEDIR_Global}/opts.shlib # Command line option functions
 
 ########################################## SUPPORT FUNCTIONS ########################################## 
 
@@ -109,9 +109,9 @@ OutputOrigT2wToStandard="OrigT2w2standard.nii.gz"
 BiasFieldOutput="BiasField"
 Jacobian="NonlinearRegJacobians.nii.gz"
 
-T1wFolder="$StudyFolder"/"$Subject"/"$T1wFolder" 
-T2wFolder="$StudyFolder"/"$Subject"/"$T2wFolder" 
-AtlasSpaceFolder="$StudyFolder"/"$Subject"/"$AtlasSpaceFolder"
+T1wFolder="$StudyFolder"/"sub-$Subject"/"$T1wFolder"
+T2wFolder="$StudyFolder"/"sub-$Subject"/"$T2wFolder"
+AtlasSpaceFolder="$StudyFolder"/"sub-$Subject"/"$AtlasSpaceFolder"
 FreeSurferFolder="$T1wFolder"/"$FreeSurferFolder"
 AtlasTransform="$AtlasSpaceFolder"/xfms/"$AtlasTransform"
 InverseAtlasTransform="$AtlasSpaceFolder"/xfms/"$InverseAtlasTransform"

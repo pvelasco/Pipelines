@@ -76,10 +76,10 @@ for Subject in $Subjlist ; do
 
   #Input Variables
   SubjectID="$Subject" #FreeSurfer Subject ID Name
-  SubjectDIR="${StudyFolder}/${Subject}/T1w" #Location to Put FreeSurfer Subject's Folder
-  T1wImage="${StudyFolder}/${Subject}/T1w/T1w_acpc_dc_restore.nii.gz" #T1w FreeSurfer Input (Full Resolution)
-  T1wImageBrain="${StudyFolder}/${Subject}/T1w/T1w_acpc_dc_restore_brain.nii.gz" #T1w FreeSurfer Input (Full Resolution)
-  T2wImage="${StudyFolder}/${Subject}/T1w/T2w_acpc_dc_restore.nii.gz" #T2w FreeSurfer Input (Full Resolution)
+  SubjectDIR="${StudyFolder}/sub-${Subject}/T1w" #Location to Put FreeSurfer Subject's Folder
+  T1wImage="${StudyFolder}/sub-${Subject}/T1w/T1w_acpc_dc_restore.nii.gz" #T1w FreeSurfer Input (Full Resolution)
+  T1wImageBrain="${StudyFolder}/sub-${Subject}/T1w/T1w_acpc_dc_restore_brain.nii.gz" #T1w FreeSurfer Input (Full Resolution)
+  T2wImage="${StudyFolder}/sub-${Subject}/T1w/T2w_acpc_dc_restore.nii.gz" #T2w FreeSurfer Input (Full Resolution)
 
   if [ -n "${command_line_specified_run_local}" ] ; then
       echo "About to run ${HCPPIPEDIR}/FreeSurfer/FreeSurferPipeline.sh"

@@ -85,13 +85,13 @@
 #
 # ### Output Directories
 #
-# Command line arguments are used to specify the StudyFolder (--path) and 
+# Command line arguments are used to specify the OutputStudyFolder (--path) and
 # the Subject (--subject).  All outputs are generated within the tree rooted
-# at ${StudyFolder}/${Subject}.  The main output directories are:
+# at ${OutputStudyFolder}/sub-${Subject}.  The main output directories are:
 #
-# * The T1wFolder: ${StudyFolder}/${Subject}/T1w
-# * The T2wFolder: ${StudyFolder}/${Subject}/T2w
-# * The AtlasSpaceFolder: ${StudyFolder}/${Subject}/MNINonLinear
+# * The T1wFolder: ${OutputStudyFolder}/sub-${Subject}/T1w
+# * The T2wFolder: ${OutputStudyFolder}/sub-${Subject}/T2w
+# * The AtlasSpaceFolder: ${OutputStudyFolder}/sub-${Subject}/MNINonLinear
 # 
 # All outputs are generated in directories at or below these three main 
 # output directories.  The full list of output directories is:
@@ -155,8 +155,9 @@ set -e
 #  Load Function Libraries
 # ------------------------------------------------------------------------------
 
-source $HCPPIPEDIR/global/scripts/log.shlib  # Logging related functions
-source $HCPPIPEDIR/global/scripts/opts.shlib # Command line option functions
+source ${HCPPIPEDIR_Global}/log.shlib  # Logging related functions
+source ${HCPPIPEDIR_Global}/opts.shlib # Command line option functions
+
 
 # ------------------------------------------------------------------------------
 #  Usage Description Function
@@ -169,7 +170,7 @@ PreFreeSurferPipeline.sh
 
 Usage: PreeFreeSurferPipeline.sh [options]
 
-  --path=<path>        Path to study data folder (required)
+  --path=<path>        Path to study processed data folder (required)
                        Used with --subject input to create full path to root 
                        directory for all outputs generated as path/subject
   --subject=<subject>  Subject ID (required)
@@ -248,7 +249,7 @@ uname -a
 
 log_Msg "Parsing Command Line Options"
 
-StudyFolder=`opts_GetOpt1 "--path" $@`
+OutputStudyFolder=`opts_GetOpt1 "--path" $@`
 Subject=`opts_GetOpt1 "--subject" $@`
 T1wInputImages=`opts_GetOpt1 "--t1" $@`
 T2wInputImages=`opts_GetOpt1 "--t2" $@`
@@ -286,7 +287,7 @@ RUN=`opts_GetOpt1 "--printcom" $@`
 # ------------------------------------------------------------------------------
 
 log_Msg "Finished Parsing Command Line Options"
-log_Msg "StudyFolder: ${StudyFolder}"
+log_Msg "OutputStudyFolder: ${OutputStudyFolder}"
 log_Msg "Subject: ${Subject}"
 log_Msg "T1wInputImages: ${T1wInputImages}"
 log_Msg "T2wInputImages: ${T2wInputImages}"
@@ -323,9 +324,9 @@ T2wFolder="T2w" #Location of T2w images
 AtlasSpaceFolder="MNINonLinear"
 
 # Build Paths
-T1wFolder=${StudyFolder}/${Subject}/${T1wFolder} 
-T2wFolder=${StudyFolder}/${Subject}/${T2wFolder} 
-AtlasSpaceFolder=${StudyFolder}/${Subject}/${AtlasSpaceFolder}
+T1wFolder=${OutputStudyFolder}/sub-${Subject}/${T1wFolder}
+T2wFolder=${OutputStudyFolder}/sub-${Subject}/${T2wFolder}
+AtlasSpaceFolder=${OutputStudyFolder}/sub-${Subject}/${AtlasSpaceFolder}
 
 log_Msg "T1wFolder: $T1wFolder"
 log_Msg "T2wFolder: $T2wFolder"
