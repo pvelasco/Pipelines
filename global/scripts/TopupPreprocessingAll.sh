@@ -14,7 +14,8 @@ Usage() {
   echo "            --phaseone=<first set of SE EPI images: with -x PE direction (LR)>"
   echo "            --phasetwo=<second set of SE EPI images: with x PE direction (RL)>"
   echo "            --scoutin=<scout input image: should be corrected for gradient non-linear distortions>"
-  echo "            --echospacing=<effective echo spacing of EPI>"
+  echo "            --SE_TotalReadoutTime=<Total readout time for the SE EPI>"
+  echo "            --scout_TotalReadoutTime=<Total readout time for the scout input image>"
   echo "            --unwarpdir=<PE direction for unwarping: x/y/z/-x/-y/-z>"
   echo "            [--owarp=<output warpfield image: scout to distortion corrected SE EPI>]"
   echo "            [--ofmapmag=<output 'Magnitude' image: scout to distortion corrected SE EPI>]" 
@@ -67,15 +68,16 @@ WD=`getopt1 "--workingdir" $@`  # "$1"
 PhaseEncodeOne=`getopt1 "--phaseone" $@`  # "$2" #SCRIPT REQUIRES LR/X-/-1 VOLUME FIRST (SAME IS TRUE OF AP/PA)
 PhaseEncodeTwo=`getopt1 "--phasetwo" $@`  # "$3" #SCRIPT REQUIRES RL/X/1 VOLUME SECOND (SAME IS TRUE OF AP/PA)
 ScoutInputName=`getopt1 "--scoutin" $@`  # "$4"
-DwellTime=`getopt1 "--echospacing" $@`  # "$5"
-UnwarpDir=`getopt1 "--unwarpdir" $@`  # "$6"
-DistortionCorrectionWarpFieldOutput=`getopt1 "--owarp" $@`  # "$7"
+SE_RO_Time=`getopt1 "--SE_TotalReadoutTime" $@` # "$5"
+scout_RO_Time=`getopt1 "--scout_TotalReadoutTime" $@` # "$6"
+UnwarpDir=`getopt1 "--unwarpdir" $@`  # "$7"
+DistortionCorrectionWarpFieldOutput=`getopt1 "--owarp" $@`  # "$8"
 DistortionCorrectionMagnitudeOutput=`getopt1 "--ofmapmag" $@`
 DistortionCorrectionMagnitudeBrainOutput=`getopt1 "--ofmapmagbrain" $@`
 DistortionCorrectionFieldOutput=`getopt1 "--ofmap" $@`
-JacobianOutput=`getopt1 "--ojacobian" $@`  # "$8"
-GradientDistortionCoeffs=`getopt1 "--gdcoeffs" $@`  # "$9"
-TopupConfig=`getopt1 "--topupconfig" $@`  # "${11}"
+JacobianOutput=`getopt1 "--ojacobian" $@`  # "$9"
+GradientDistortionCoeffs=`getopt1 "--gdcoeffs" $@`  # "$10"
+TopupConfig=`getopt1 "--topupconfig" $@`  # "${12}"
 
 GlobalScripts=${HCPPIPEDIR_Global}
 
@@ -143,43 +145,35 @@ fi
 dimtOne=`${FSLDIR}/bin/fslval ${WD}/PhaseOne dim4`
 dimtTwo=`${FSLDIR}/bin/fslval ${WD}/PhaseTwo dim4`
 
+echo "Total readout time for SE distortion images is $SE_RO_Time secs"
+
 # Calculate the readout time and populate the parameter file appropriately
 # X direction phase encode
 if [[ $UnwarpDir = "x" || $UnwarpDir = "x-" || $UnwarpDir = "-x" ]] ; then
-  dimx=`${FSLDIR}/bin/fslval ${WD}/PhaseOne dim1`
-  nPEsteps=$(($dimx - 1))
-  #Total_readout=Echo_spacing*(#of_PE_steps-1)
-  #Note: the above calculation implies full k-space acquisition for SE EPI. In case of partial Fourier/k-space acquisition (though not recommended), $dimx-1 does not equal to nPEsteps. 
-  ro_time=`echo "scale=6; ${DwellTime} * ${nPEsteps}" | bc -l` #Compute Total_readout in secs with up to 6 decimal places
-  echo "Total readout time is $ro_time secs"
   i=1
   while [ $i -le $dimtOne ] ; do
-    echo "-1 0 0 $ro_time" >> $txtfname
-    ShiftOne="x-"
+    echo "-1 0 0 $SE_RO_Time" >> $txtfname
+    ShiftOne="x-"     # TO-DO: can I remove this line?
     i=`echo "$i + 1" | bc`
   done
   i=1
   while [ $i -le $dimtTwo ] ; do
-    echo "1 0 0 $ro_time" >> $txtfname
-    ShiftTwo="x"
+    echo "1 0 0 $SE_RO_Time" >> $txtfname
+    ShiftTwo="x"     # TO-DO: can I remove this line?
     i=`echo "$i + 1" | bc`
   done
 # Y direction phase encode
 elif [[ $UnwarpDir = "y" || $UnwarpDir = "y-" || $UnwarpDir = "-y" ]] ; then
-  dimy=`${FSLDIR}/bin/fslval ${WD}/PhaseOne dim2`
-  nPEsteps=$(($dimy - 1))
-  #Total_readout=Echo_spacing*(#of_PE_steps-1)
-  ro_time=`echo "scale=6; ${DwellTime} * ${nPEsteps}" | bc -l` #Compute Total_readout in secs with up to 6 decimal places
   i=1
   while [ $i -le $dimtOne ] ; do
-    echo "0 -1 0 $ro_time" >> $txtfname
-    ShiftOne="y-"
+    echo "0 -1 0 $SE_RO_Time" >> $txtfname
+    ShiftOne="y-"     # TO-DO: can I remove this line?
     i=`echo "$i + 1" | bc`
   done
   i=1
   while [ $i -le $dimtTwo ] ; do
-    echo "0 1 0 $ro_time" >> $txtfname
-    ShiftTwo="y"
+    echo "0 1 0 $SE_RO_Time" >> $txtfname
+    ShiftTwo="y"     # TO-DO: can I remove this line?
     i=`echo "$i + 1" | bc`
   done
 fi
@@ -201,6 +195,8 @@ ${FSLDIR}/bin/fslmaths ${WD}/BothPhases -abs -add 1 -mas ${WD}/Mask -dilM -dilM 
 
 # RUN TOPUP
 # Needs FSL (version 5.0.6)
+
+# TO-DO: if topup has been run for these images, do not run it again.
 ${FSLDIR}/bin/topup --imain=${WD}/BothPhases --datain=$txtfname --config=${TopupConfig} --out=${WD}/Coefficents --iout=${WD}/Magnitudes --fout=${WD}/TopupField --dfout=${WD}/WarpField --rbmout=${WD}/MotionMatrix --jacout=${WD}/Jacobian -v 
 
 #Remove Z slice padding if needed
@@ -211,6 +207,10 @@ if [ ! $(($numslice % 2)) -eq "0" ] ; then
   done
 fi
 
+# The amount of distortion is proportional to the TotalReadoutTime, so if the
+#   scout_TotalReadoutTime is different from the SE_TotalReadoutTime, scale it:
+RO_time_scale=`echo "scale=9; ${scout_RO_Time} / ${SE_RO_Time}" | bc -l` 
+
 # UNWARP DIR = x,y
 if [[ $UnwarpDir = "x" || $UnwarpDir = "y" ]] ; then
   # select the first volume from PhaseTwo
@@ -219,7 +219,9 @@ if [[ $UnwarpDir = "x" || $UnwarpDir = "y" ]] ; then
   # register scout to SE input (PhaseTwo) + combine motion and distortion correction
   ${FSLDIR}/bin/flirt -dof 6 -interp spline -in ${WD}/SBRef.nii.gz -ref ${WD}/PhaseTwo_gdc -omat ${WD}/SBRef2PhaseTwo_gdc.mat -out ${WD}/SBRef2PhaseTwo_gdc
   ${FSLDIR}/bin/convert_xfm -omat ${WD}/SBRef2WarpField.mat -concat ${WD}/MotionMatrix_${vnum}.mat ${WD}/SBRef2PhaseTwo_gdc.mat
-  ${FSLDIR}/bin/convertwarp --relout --rel -r ${WD}/PhaseTwo_gdc --premat=${WD}/SBRef2WarpField.mat --warp1=${WD}/WarpField_${vnum} --out=${WD}/WarpField.nii.gz
+  # TO-DO: scale to correct for differences in the TotalReadoutTime between the SE- and the scout- images:
+  ${FSLDIR}/bin/fslmaths ${WD}/WarpField_${vnum} -mul ${RO_time_scale} ${WD}/WarpField_${vnum}_scaled
+  ${FSLDIR}/bin/convertwarp --relout --rel -r ${WD}/PhaseTwo_gdc --premat=${WD}/SBRef2WarpField.mat --warp1=${WD}/WarpField_${vnum}_scaled --out=${WD}/WarpField.nii.gz
   ${FSLDIR}/bin/imcp ${WD}/Jacobian_${vnum}.nii.gz ${WD}/Jacobian.nii.gz
   SBRefPhase=Two
 # UNWARP DIR = -x,-y
@@ -230,7 +232,9 @@ elif [[ $UnwarpDir = "x-" || $UnwarpDir = "-x" || $UnwarpDir = "y-" || $UnwarpDi
   # register scout to SE input (PhaseOne) + combine motion and distortion correction
   ${FSLDIR}/bin/flirt -dof 6 -interp spline -in ${WD}/SBRef.nii.gz -ref ${WD}/PhaseOne_gdc -omat ${WD}/SBRef2PhaseOne_gdc.mat -out ${WD}/SBRef2PhaseOne_gdc
   ${FSLDIR}/bin/convert_xfm -omat ${WD}/SBRef2WarpField.mat -concat ${WD}/MotionMatrix_${vnum}.mat ${WD}/SBRef2PhaseOne_gdc.mat
-  ${FSLDIR}/bin/convertwarp --relout --rel -r ${WD}/PhaseOne_gdc --premat=${WD}/SBRef2WarpField.mat --warp1=${WD}/WarpField_${vnum} --out=${WD}/WarpField.nii.gz
+# TO-DO: scale to correct for differences in the TotalReadoutTime between the SE- and the scout- images:
+  ${FSLDIR}/bin/fslmaths ${WD}/WarpField_${vnum} -mul ${RO_time_scale} ${WD}/WarpField_${vnum}_scaled
+  ${FSLDIR}/bin/convertwarp --relout --rel -r ${WD}/PhaseOne_gdc --premat=${WD}/SBRef2WarpField.mat --warp1=${WD}/WarpField_${vnum}_scaled --out=${WD}/WarpField.nii.gz
   ${FSLDIR}/bin/imcp ${WD}/Jacobian_${vnum}.nii.gz ${WD}/Jacobian.nii.gz
   SBRefPhase=One
 fi
@@ -251,7 +255,7 @@ ${FSLDIR}/bin/applywarp --rel --interp=spline -i ${WD}/SBRef.nii.gz -r ${WD}/SBR
 ${FSLDIR}/bin/fslmaths ${WD}/SBRef_dc.nii.gz -mul ${WD}/Jacobian.nii.gz ${WD}/SBRef_dc_jac.nii.gz
 
 # Calculate Equivalent Field Map
-${FSLDIR}/bin/fslmaths ${WD}/TopupField -mul 6.283 ${WD}/TopupField
+${FSLDIR}/bin/fslmaths ${WD}/TopupField -mul 6.2831853 ${WD}/TopupField
 ${FSLDIR}/bin/fslmaths ${WD}/Magnitudes.nii.gz -Tmean ${WD}/Magnitude.nii.gz
 ${FSLDIR}/bin/bet ${WD}/Magnitude ${WD}/Magnitude_brain -f 0.35 -m #Brain extract the magnitude image
 

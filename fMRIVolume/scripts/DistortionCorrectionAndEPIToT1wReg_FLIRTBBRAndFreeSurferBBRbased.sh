@@ -89,6 +89,8 @@ T1wRestoreImage=`getopt1 "--t1restore" $@`  # "$4"
 T1wBrainImage=`getopt1 "--t1brain" $@`  # "$5"
 SpinEchoPhaseEncodeNegative=`getopt1 "--SEPhaseNeg" $@`  # "$7"
 SpinEchoPhaseEncodePositive=`getopt1 "--SEPhasePos" $@`  # "$5"
+SE_RO_Time=`getopt1 "--SE_TotalReadoutTime" $@` # "$"
+scout_RO_Time=`getopt1 "--scout_TotalReadoutTime" $@`  # "$9"
 DwellTime=`getopt1 "--echospacing" $@`  # "$9"
 MagnitudeInputName=`getopt1 "--fmapmag" $@`  # "$6"
 PhaseInputName=`getopt1 "--fmapphase" $@`  # "$7"
@@ -135,7 +137,10 @@ fi
 
 cp ${T1wBrainImage}.nii.gz ${WD}/${T1wBrainImageFile}.nii.gz
 
-###### FIELDMAP VERSION (GE FIELDMAPS) ######
+###### FIELDMAP VERSION (GRE FIELDMAPS) ######
+
+# TO-DO: double-check this:
+
 if [ $DistortionCorrection = "FIELDMAP" ] ; then
   # process fieldmap with gradient non-linearity distortion correction
   ${GlobalScripts}/FieldMapPreprocessingAll.sh \
@@ -195,17 +200,18 @@ if [ $DistortionCorrection = "FIELDMAP" ] ; then
   ${FSLDIR}/bin/immv ${WD}/${ScoutInputFile}_undistorted_1vol.nii.gz ${WD}/${ScoutInputFile}_undistorted2T1w_init.nii.gz
   ###Jacobian Volume FAKED for Regular Fieldmaps (all ones) ###
   ${FSLDIR}/bin/fslmaths ${T1wImage} -abs -add 1 -bin ${WD}/Jacobian2T1w.nii.gz
-    
-###### TOPUP VERSION (SE FIELDMAPS) ######
+
+###### TOPUP VERSION (SE DISTORTION-MAPS) ######
 elif [ $DistortionCorrection = "TOPUP" ] ; then
   # Use topup to distortion correct the scout scans
-  #    using a blip-reversed SE pair "fieldmap" sequence
+  #    using a blip-reversed SE pair "distortion-map" sequence
   ${GlobalScripts}/TopupPreprocessingAll.sh \
       --workingdir=${WD}/FieldMap \
       --phaseone=${SpinEchoPhaseEncodeNegative} \
       --phasetwo=${SpinEchoPhaseEncodePositive} \
       --scoutin=${ScoutInputName} \
-      --echospacing=${DwellTime} \
+      --SE_TotalReadoutTime=${SE_RO_Time} \
+      --scout_TotalReadoutTime=${scout_RO_Time} \
       --unwarpdir=${UnwarpDir} \
       --owarp=${WD}/WarpField \
       --ojacobian=${WD}/Jacobian \
@@ -331,7 +337,13 @@ echo "cd `pwd`" >> $WD/qa.txt
 echo "# Check registration of EPI to T1w (with all corrections applied)" >> $WD/qa.txt
 echo "fslview ${T1wRestoreImage} ${RegOutput} ${QAImage}" >> $WD/qa.txt
 echo "# Check undistortion of the scout image" >> $WD/qa.txt
-echo "fslview `dirname ${ScoutInputName}`/GradientDistortionUnwarp/Scout ${WD}/${ScoutInputFile}_undistorted" >> $WD/qa.txt
+# TO-DO: Fix this.  It doesn't work if GradDistortionCoeffs="NONE". (I'm not
+#        sure who creates "GradientDistortionUnwarp/Scout")
+if [ $GradientDistortionCoeffs = "NONE" ] ; then
+    echo "fslview `dirname ${ScoutInputName}`/GradientDistortionUnwarp/Scout ${WD}/${ScoutInputFile}_undistorted" >> $WD/qa.txt
+else
+    echo "fslview `dirname ${ScoutInputName}`/GradientDistortionUnwarp/Scout ${WD}/${ScoutInputFile}_undistorted" >> $WD/qa.txt
+fi
 
 ##############################################################################################
 

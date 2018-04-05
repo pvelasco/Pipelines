@@ -50,6 +50,7 @@ log_Msg "Parsing Command Line Options"
 Path=`opts_GetOpt1 "--path" $@`  # "$1"
 Subject=`opts_GetOpt1 "--subject" $@`  # "$2"
 NameOffMRI=`opts_GetOpt1 "--fmriname" $@`  # "$6"
+AcqRun=`opts_GetOpt1 "--acqRun" $@`
 LowResMesh=`opts_GetOpt1 "--lowresmesh" $@`  # "$6"
 FinalfMRIResolution=`opts_GetOpt1 "--fmrires" $@`  # "${14}"
 SmoothingFWHM=`opts_GetOpt1 "--smoothingFWHM" $@`  # "${14}"
@@ -65,6 +66,7 @@ RUN=`opts_GetOpt1 "--printcom" $@`  # use ="echo" for just printing everything a
 log_Msg "Path: ${Path}"
 log_Msg "Subject: ${Subject}"
 log_Msg "NameOffMRI: ${NameOffMRI}"
+log_Msg "AcqRun: ${AcqRun}"
 log_Msg "LowResMesh: ${LowResMesh}"
 log_Msg "FinalfMRIResolution: ${FinalfMRIResolution}"
 log_Msg "SmoothingFWHM: ${SmoothingFWHM}"
@@ -84,9 +86,12 @@ DownSampleFolder="fsaverage_LR${LowResMesh}k"
 ROIFolder="ROIs"
 OutputAtlasDenseTimeseries="${NameOffMRI}_Atlas"
 
-AtlasSpaceFolder="$Path"/"$Subject"/"$AtlasSpaceFolder"
-T1wFolder="$Path"/"$Subject"/"$T1wFolder"
-ResultsFolder="$AtlasSpaceFolder"/"$ResultsFolder"/"$NameOffMRI"
+
+########################################## DO WORK ##########################################
+
+AtlasSpaceFolder="$Path"/"sub-$Subject"/"$AtlasSpaceFolder"
+T1wFolder="$Path"/"sub-$Subject"/"$T1wFolder"
+ResultsFolder="$AtlasSpaceFolder"/"$ResultsFolder"/"$NameOffMRI"/"$AcqRun"
 ROIFolder="$AtlasSpaceFolder"/"$ROIFolder"
 
 #Make fMRI Ribbon
