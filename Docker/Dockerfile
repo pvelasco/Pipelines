@@ -110,6 +110,7 @@ RUN yum -y update \
     && yum clean all
 
 # Install HCP Pipelines v.3.4.0 from github, and get folder where it is installed.
+RUN pwd
 ENV HCPPIPEDIR=${INSTALL_FOLDER}/Pipelines
 RUN mkdir ${HCPPIPEDIR} \
     && curl -sSL https://github.com/pvelasco/Pipelines/archive/v3.4.tar.gz \

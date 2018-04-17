@@ -1,14 +1,14 @@
 #!/bin/bash 
 
 # TO-DO:
-# - Get the PE direction from the json file
-# - Either run it on all tasks/resting, or set tasks as argument
+# - Give the option to run it on all functional runs (tasks and rest)
 
 get_batch_options() {
     local arguments=($@)
 
     unset command_line_specified_study_folder
     unset command_line_specified_subj_list
+    unset command_line_task_list
     unset command_line_specified_run_local
 
     local index=0
@@ -27,6 +27,10 @@ get_batch_options() {
                 command_line_specified_subj_list=${argument/*=/""}
                 index=$(( index + 1 ))
                 ;;
+            --Tasklist=*)
+                command_line_specified_task_list=${argument/*=/""}
+                index=$(( index + 1 ))
+                ;;
             --runlocal)
                 command_line_specified_run_local="TRUE"
                 index=$(( index + 1 ))
@@ -41,15 +45,21 @@ get_batch_options $@
 
 StudyFolder="${HOME}/projects/Pipelines_ExampleData" #Location of Subject folders (named by subjectID)
 Subjlist="100307" #Space delimited list of subject IDs
+Tasklist="face"   #Comma-separated list of tasks
+
 #EnvironmentScript="${HOME}/projects/Pipelines/Examples/Scripts/SetUpHCPPipeline.sh" #Pipeline environment script
 EnvironmentScript="${HCPPIPEDIR}/Examples/Scripts/SetUpHCPPipeline.sh" #Pipeline environment script
 
 if [ -n "${command_line_specified_study_folder}" ]; then
     StudyFolder="${command_line_specified_study_folder}"
 fi
-
 if [ -n "${command_line_specified_subj_list}" ]; then
-    Subjlist="${command_line_specified_subj_list}"
+    # Split the different comma-separated subjects:
+    Subjlist=(${command_line_specified_subj_list//,/ })
+fi
+if [ -n "${command_line_specified_subj_list}" ]; then
+    # Split the different comma-separated subjects:
+    Subjlist=(${command_line_specified_subj_list//,/ })
 fi
 
 # Requirements for this script
@@ -80,22 +90,23 @@ PRINTCOM=""
 
 # Configuration common to all subjects, tasks and run numbers:
 
-Tasklist="face"     # process only the runs labeled "face"
-
+# TO-DO: Try to read this from the corresponding PostFreeSurfer folder:
 LowResMesh="32" #Needs to match what is in PostFreeSurfer, 32 is on average 2mm spacing between the vertices on the midthickness
-FinalfMRIResolution="2" #Needs to match what is in fMRIVolume, i.e. 2mm for 3T HCP data and 1.6mm for 7T HCP data
-# TO-DO: read this FinalfMRIResolution from the output of fMRIVolume Pipeline (maybe in GenericfMRISurfaceProcessingPipeline.sh)
 SmoothingFWHM="2" #Recommended to be roughly the grayordinates spacing, i.e 2mm on HCP data
+# TO-DO: Try to read this from the corresponding PostFreeSurfer folder:
 GrayordinatesResolution="2" #Needs to match what is in PostFreeSurfer. 2mm gives the HCP standard grayordinates space with 91282 grayordinates.  Can be different from the FinalfMRIResolution (e.g. in the case of HCP 7T data at 1.6mm)
-# TO-DO: read this GrayordinatesResolution from the output of PostFreeSurfer (maybe in GenericfMRISurfaceProcessingPipeline.sh)
 # RegName="MSMSulc" #MSMSulc is recommended, if binary is not available use FS (FreeSurfer)
 RegName="FS"
 
-for Subject in $Subjlist ; do
-  echo $Subject
 
-  for fMRIName in $Tasklist ; do
-    echo "  ${fMRIName}"
+for Subject in ${Subjlist[*]} ; do
+  echo ""
+  echo ""
+  echo "########################      $Subject      ########################"
+
+  for fMRIName in ${Tasklist[*]} ; do
+    echo ""
+    echo "###     ${fMRIName}     ###"
 
     # TO-DO: handle the multi-session subjects
     for acqRun in `ls ${StudyFolder}/sub-${Subject}/${fMRIName}/`; do
@@ -113,7 +124,6 @@ for Subject in $Subjlist ; do
 	  --fmriname=$fMRIName \
 	  --acqRun=$acqRun \
 	  --lowresmesh=$LowResMesh \
-	  --fmrires=$FinalfMRIResolution \
 	  --smoothingFWHM=$SmoothingFWHM \
 	  --grayordinatesres=$GrayordinatesResolution \
 	  --regname=$RegName
@@ -125,14 +135,20 @@ for Subject in $Subjlist ; do
           --fmriname=$fMRIName \
           --acqRun=$acqRun \
           --lowresmesh=$LowResMesh \
-          --fmrires=$FinalfMRIResolution \
           --smoothingFWHM=$SmoothingFWHM \
           --grayordinatesres=$GrayordinatesResolution \
           --regname=$RegName"
 
         echo ". ${EnvironmentScript}"
+
+	echo ""
+	echo "----------------------------------------------"
+	echo ""
     done     # loop through run number
+	
+    echo ""
   done       # loop through task name
+  echo ""
 done         # loop through subjects
 
 

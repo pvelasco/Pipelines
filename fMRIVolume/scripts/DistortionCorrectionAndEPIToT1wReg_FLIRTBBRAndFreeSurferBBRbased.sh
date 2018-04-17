@@ -185,7 +185,7 @@ if [ $DistortionCorrection = "FIELDMAP" ] ; then
     fslmaths ${WD}/Scout_brain_mask.nii.gz -bin ${WD}/Scout_brain_mask.nii.gz
     fslmaths ${WD}/Scout.nii.gz -mas ${WD}/Scout_brain_mask.nii.gz ${WD}/Scout_brain.nii.gz
        
-    # register scout to T1w image using fieldmap
+    # register scout to brain T1w image using fieldmap
     ${FSLDIR}/bin/epi_reg --epi=${WD}/Scout_brain.nii.gz --t1=${T1wImage} --t1brain=${WD}/${T1wBrainImageFile} --out=${WD}/${ScoutInputFile}_undistorted --fmap=${WD}/FieldMap.nii.gz --fmapmag=${WD}/Magnitude.nii.gz --fmapmagbrain=${WD}/Magnitude_brain.nii.gz --echospacing=${DwellTime} --pedir=${UnwarpDir}
   else
     # register scout to T1w image using fieldmap
@@ -203,6 +203,9 @@ if [ $DistortionCorrection = "FIELDMAP" ] ; then
 
 ###### TOPUP VERSION (SE DISTORTION-MAPS) ######
 elif [ $DistortionCorrection = "TOPUP" ] ; then
+
+  # TO-DO: Maybe I should re-use the Field-map or Distortion-map warp fields (if present)
+
   # Use topup to distortion correct the scout scans
   #    using a blip-reversed SE pair "distortion-map" sequence
   ${GlobalScripts}/TopupPreprocessingAll.sh \
@@ -333,17 +336,19 @@ echo " END: `date`" >> $WD/log.txt
 ########################################## QA STUFF ########################################## 
 
 if [ -e $WD/qa.txt ] ; then rm -f $WD/qa.txt ; fi
-echo "cd `pwd`" >> $WD/qa.txt
+echo "# First, cd to the directory with this file is found." >> $WD/qa.txt
+echo "" >> $WD/qa.txt
 echo "# Check registration of EPI to T1w (with all corrections applied)" >> $WD/qa.txt
-echo "fslview ${T1wRestoreImage} ${RegOutput} ${QAImage}" >> $WD/qa.txt
+echo "fslview ../`basename ${T1wRestoreImage}` ../`basename ${RegOutput}` ../`basename ${QAImage}`" >> $WD/qa.txt
 echo "# Check undistortion of the scout image" >> $WD/qa.txt
-# TO-DO: Fix this.  It doesn't work if GradDistortionCoeffs="NONE". (I'm not
-#        sure who creates "GradientDistortionUnwarp/Scout")
 if [ $GradientDistortionCoeffs = "NONE" ] ; then
-    echo "fslview `dirname ${ScoutInputName}`/GradientDistortionUnwarp/Scout ${WD}/${ScoutInputFile}_undistorted" >> $WD/qa.txt
+    # TO-DO: Fix this.  It doesn't work because of the different spaces (Scout input is in native
+    #        space, while the _undistorted image is in T1w space)
+    echo "fslview ../`basename ${ScoutInputFile}` ${ScoutInputFile}_undistorted" >> $WD/qa.txt
 else
-    echo "fslview `dirname ${ScoutInputName}`/GradientDistortionUnwarp/Scout ${WD}/${ScoutInputFile}_undistorted" >> $WD/qa.txt
+    echo "fslview ../GradientDistortionUnwarp/Scout ${WD}/${ScoutInputFile}_undistorted" >> $WD/qa.txt
 fi
 
 ##############################################################################################
+
 

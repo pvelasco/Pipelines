@@ -108,6 +108,29 @@ GradientDistortionCoeffs=`opts_GetOpt1 "--gdcoeffs" $@`  # "${18}"
 TopupConfig=`opts_GetOpt1 "--topupconfig" $@`  # "${20}" #NONE if Topup is not being used
 RUN=`opts_GetOpt1 "--printcom" $@`  # use ="echo" for just printing everything and not running the commands (default is to run)
 
+# ------------------------------------------------------------------------------
+#  Show Command Line Options
+# ------------------------------------------------------------------------------
+
+log_Msg "OutputStudyFolder: ${OutputStudyFolder}"
+log_Msg "Subject: ${Subject}"
+log_Msg "NameOffMRI: ${NameOffMRI}"
+log_Msg "fMRITimeSeries: ${fMRITimeSeries}"
+log_Msg "fMRIScout: ${fMRIScout}"
+log_Msg "SpinEchoPhaseEncodeNegative: ${SpinEchoPhaseEncodeNegative}"
+log_Msg "SpinEchoPhaseEncodePositive: ${SpinEchoPhaseEncodePositive}"
+log_Msg "SE_RO_Time: ${SE_RO_Time}"
+log_Msg "SBRef_RO_Time: ${SBRef_RO_Time}"
+log_Msg "MagnitudeInputName: ${MagnitudeInputName}"
+log_Msg "PhaseInputName: ${PhaseInputName}"
+log_Msg "DwellTime: ${DwellTime}"
+log_Msg "deltaTE: ${deltaTE}"
+log_Msg "UnwarpDir: ${UnwarpDir}"
+log_Msg "FinalfMRIResolution: ${FinalfMRIResolution}"
+log_Msg "DistortionCorrection: ${DistortionCorrection}"
+log_Msg "GradientDistortionCoeffs: ${GradientDistortionCoeffs}"
+log_Msg "TopupConfig: ${TopupConfig}"
+
 # Setup PATHS
 PipelineScripts=${HCPPIPEDIR_fMRIVol}
 GlobalScripts=${HCPPIPEDIR_Global}
@@ -205,8 +228,6 @@ ${RUN} "$PipelineScripts"/MotionCorrection_FLIRTbased.sh \
     "$fMRIFolder"/"$MotionMatrixFolder" \
     "$MotionMatrixPrefix" 
 
-
-# TO-DO: Maybe I should re-use the Field-map or Distortion-map warp fields (if present)
 
 #EPI Distortion Correction and EPI to T1w Registration
 log_Msg "EPI Distortion Correction and EPI to T1w Registration"
