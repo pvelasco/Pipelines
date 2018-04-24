@@ -19,7 +19,7 @@ Usage() {
   echo "            [--echodiff=<echo time difference for fieldmap images (in milliseconds)>]"
   echo "            [--SEPhaseNeg=<input spin echo negative phase encoding image>]"
   echo "            [--SEPhasePos=<input spin echo positive phase encoding image>]"
-  echo "            [--echospacing=<effective echo spacing of fMRI image, in seconds>]"
+  echo "            [--SE_RO_Time=<total readout time for the SE image, in seconds>]"
   echo "            [--seunwarpdir=<direction of distortion according to voxel axes>]"
   echo "            --t1sampspacing=<sample spacing (readout direction) of T1w image - in seconds>"
   echo "            --t2sampspacing=<sample spacing (readout direction) of T2w image - in seconds>"
@@ -92,7 +92,7 @@ PhaseInputName=`getopt1 "--fmapphase" $@`  # "$7"
 TE=`getopt1 "--echodiff" $@`  # "$8"
 SpinEchoPhaseEncodeNegative=`getopt1 "--SEPhaseNeg" $@`  # "$7"
 SpinEchoPhaseEncodePositive=`getopt1 "--SEPhasePos" $@`  # "$5"
-DwellTime=`getopt1 "--echospacing" $@`  # "$9"
+SE_RO_Time=`getopt1 "--SE_TotalReadoutTime" $@` # "$"
 SEUnwarpDir=`getopt1 "--seunwarpdir" $@`  # "${11}"
 T1wSampleSpacing=`getopt1 "--t1sampspacing" $@`  # "$9"
 T2wSampleSpacing=`getopt1 "--t2sampspacing" $@`  # "${10}"
@@ -160,6 +160,7 @@ elif [ $DistortionCorrection = "TOPUP" ] ; then
   elif [[ ${SEUnwarpDir} = "-x" || ${SEUnwarpDir} = "-y" || ${SEUnwarpDir} = "x-" || ${SEUnwarpDir} = "y-" ]] ; then
     ScoutInputName="${SpinEchoPhaseEncodeNegative}"
   fi
+  scout_RO_Time=${SE_RO_Time}      # We use one of the SE as scout for TopUp
   # Use topup to distortion correct the scout scans
   #    using a blip-reversed SE pair "fieldmap" sequence
   ${HCPPIPEDIR_Global}/TopupPreprocessingAll.sh \
@@ -167,7 +168,8 @@ elif [ $DistortionCorrection = "TOPUP" ] ; then
       --phaseone=${SpinEchoPhaseEncodeNegative} \
       --phasetwo=${SpinEchoPhaseEncodePositive} \
       --scoutin=${ScoutInputName} \
-      --echospacing=${DwellTime} \
+      --SE_TotalReadoutTime=${SE_RO_Time} \
+      --scout_TotalReadoutTime=${scout_RO_Time} \
       --unwarpdir=${SEUnwarpDir} \
       --ofmapmag=${WD}/Magnitude \
       --ofmapmagbrain=${WD}/Magnitude_brain \
@@ -258,11 +260,12 @@ echo " END: `date`" >> $WD/log.txt
 ########################################## QA STUFF ########################################## 
 
 if [ -e $WD/qa.txt ] ; then rm -f $WD/qa.txt ; fi
-echo "cd `pwd`" >> $WD/qa.txt
+echo "# First, cd to the directory with this file is found." >> $WD/qa.txt
+echo "" >> $WD/qa.txt
 echo "# View registration result of corrected T2w to corrected T1w image: showing both images + sqrt(T1w*T2w)" >> $WD/qa.txt
-echo "fslview ${OutputT1wImage} ${OutputT2wImage} ${WD}/T2w2T1w/sqrtT1wbyT2w" >> $WD/qa.txt
+echo "fslview ./${T1wImageBrainBasename} ./T2w2T1w/T2w_reg /T2w2T1w/sqrtT1wbyT2w" >> $WD/qa.txt
 echo "# Compare pre- and post-distortion correction for T1w" >> $WD/qa.txt
-echo "fslview ${T1wImage} ${OutputT1wImage}" >> $WD/qa.txt
+echo "fslview `realpath --relative-to=${WD} ${T1wImage}` ./${T1wImageBrainBasename}" >> $WD/qa.txt
 echo "# Compare pre- and post-distortion correction for T2w" >> $WD/qa.txt
 echo "fslview ${T2wImage} ${WD}/${T2wImageBasename}" >> $WD/qa.txt
 

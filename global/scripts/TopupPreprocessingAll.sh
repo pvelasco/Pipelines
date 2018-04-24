@@ -353,7 +353,10 @@ echo "fslview ./Phase${SBRefPhase}_gdc ./SBRef2Phase${SBRefPhase}_gdc" >> $WD/qa
 echo "# Inspect results of various corrections to scout" >> $WD/qa.txt
 echo "fslview ./SBRef ./SBRef_dc ./SBRef_dc_jac" >> $WD/qa.txt
 echo "# Visual check of warpfield and Jacobian" >> $WD/qa.txt
-echo "fslview ../`basename ${DistortionCorrectionWarpFieldOutput}` ../`basename ${JacobianOutput}`" >> $WD/qa.txt
-
+if [ ! -z "${DistortionCorrectionWarpFieldOutput}" ] ; then
+  echo "fslview ../`basename ${DistortionCorrectionWarpFieldOutput}` ../`basename ${JacobianOutput}`" >> $WD/qa.txt
+else
+  echo "fslview ../`basename ${JacobianOutput}`" >> $WD/qa.txt
+fi
 ##############################################################################################
 

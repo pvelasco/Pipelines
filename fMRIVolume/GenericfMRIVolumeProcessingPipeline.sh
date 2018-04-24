@@ -54,7 +54,7 @@ Usage: GenericfMRIVolumeProcessingPipeline.sh [options]
   --SEPhasePos={LR, RL, NONE}    For the spin echo field map volume with a 
                                  positive phase encoding direction (RL in HCP 
                                  data), set to "NONE" if using regular FIELDMAP
-  --echospacing=<dwell time>     Echo Spacing or Dwelltime of Spin Echo Field
+  --SE_TotalReadoutTime=<SE_TotalReadoutTime>     Total Readout time for the Spin Echo Distortion
                                  Map or "NONE" if not used
   --unwarpdir={x, y, z}        Phase encoding direction of the fMRI time series.
                                (Used with either a regular field map or a spin
@@ -99,7 +99,6 @@ SE_RO_Time=`opts_GetOpt1 "--SE_TotalReadoutTime" $@` # "$"
 SBRef_RO_Time=`opts_GetOpt1 "--SBRef_TotalReadoutTime" $@` # "$6"
 MagnitudeInputName=`opts_GetOpt1 "--fmapmag" $@`  # "$8" #Expects 4D volume with two 3D timepoints
 PhaseInputName=`opts_GetOpt1 "--fmapphase" $@`  # "$9"
-DwellTime=`opts_GetOpt1 "--echospacing" $@`  # "${11}"
 deltaTE=`opts_GetOpt1 "--echodiff" $@`  # "${12}"
 UnwarpDir=`opts_GetOpt1 "--unwarpdir" $@`  # "${13}"
 FinalfMRIResolution=`opts_GetOpt1 "--fmrires" $@`  # "${14}"
@@ -123,7 +122,6 @@ log_Msg "SE_RO_Time: ${SE_RO_Time}"
 log_Msg "SBRef_RO_Time: ${SBRef_RO_Time}"
 log_Msg "MagnitudeInputName: ${MagnitudeInputName}"
 log_Msg "PhaseInputName: ${PhaseInputName}"
-log_Msg "DwellTime: ${DwellTime}"
 log_Msg "deltaTE: ${deltaTE}"
 log_Msg "UnwarpDir: ${UnwarpDir}"
 log_Msg "FinalfMRIResolution: ${FinalfMRIResolution}"
@@ -250,7 +248,6 @@ ${RUN} ${PipelineScripts}/DistortionCorrectionAndEPIToT1wReg_FLIRTBBRAndFreeSurf
     --SEPhasePos=${SpinEchoPhaseEncodePositive} \
     --SE_TotalReadoutTime=${SE_RO_Time} \
     --scout_TotalReadoutTime=${scout_RO_Time} \
-    --echospacing=${DwellTime} \
     --unwarpdir=${UnwarpDir} \
     --owarp=${T1wFolder}/xfms/${fMRI2strOutputTransform} \
     --biasfield=${T1wFolder}/${BiasField} \

@@ -102,21 +102,6 @@ ENV MINC_BIN_DIR=${MNI_DIR}/bin \
     NSLOTS=20
 
 
-###   Install HCP Pipelines   ###
-
-# Install packages needed for the pipelines (and wget):
-RUN yum -y update \
-    && yum install -y freetype libpng libSM libXrender fontconfig libXext \
-    && yum clean all
-
-# Install HCP Pipelines v.3.4.0 from github, and get folder where it is installed.
-RUN pwd
-ENV HCPPIPEDIR=${INSTALL_FOLDER}/Pipelines
-RUN mkdir ${HCPPIPEDIR} \
-    && curl -sSL https://github.com/pvelasco/Pipelines/archive/v3.4.tar.gz \
-        | tar -vxz -C ${HCPPIPEDIR} --strip-components=1
-
-
 ###   Install HCP Workbench   ###
 
 # Install HCP Workbench v.1.0 from the official repo:
@@ -129,6 +114,20 @@ RUN curl -sS https://ftp.humanconnectome.org/workbench/workbench-rh_linux64-v1.0
 
 # Install HCP's version of 'gradunwarp' (v.1.0.2) from github:
 RUN curl -sSL https://github.com/Washington-University/gradunwarp/archive/v1.0.3.tar.gz | tar xz -C ${INSTALL_FOLDER}
+
+
+###   Install HCP Pipelines   ###
+
+# Install packages needed for the pipelines (and wget):
+RUN yum -y update \
+    && yum install -y freetype libpng libSM libXrender fontconfig libXext \
+    && yum clean all
+
+# Install HCP Pipelines v.3.4.0 from github, and get folder where it is installed.
+ENV HCPPIPEDIR=${INSTALL_FOLDER}/Pipelines
+RUN mkdir ${HCPPIPEDIR} \
+    && curl -sSL https://github.com/pvelasco/Pipelines/archive/GenericfMRI_BIDS.tar.gz \
+        | tar -vxz -C ${HCPPIPEDIR} --strip-components=1
 
 
 ###   Modify some batches to run them in parallel   ###

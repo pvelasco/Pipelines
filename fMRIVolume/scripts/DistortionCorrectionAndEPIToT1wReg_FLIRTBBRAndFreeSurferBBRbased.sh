@@ -20,7 +20,7 @@ Usage() {
   echo "             --echodiff=<difference of echo times for fieldmap, in milliseconds>"
   echo "             --SEPhaseNeg=<input spin echo negative phase encoding image>"
   echo "             --SEPhasePos=<input spin echo positive phase encoding image>"
-  echo "             --echospacing=<effective echo spacing of fMRI image, in seconds>"
+  echo "             --SE_TotalReadoutTime=<effective echo spacing of fMRI image, in seconds>"
   echo "             --unwarpdir=<unwarping direction: x/y/z/-x/-y/-z>"
   echo "             --owarp=<output filename for warp of EPI to T1w>"
   echo "             --biasfield=<input bias field estimate image, in fMRI space>"

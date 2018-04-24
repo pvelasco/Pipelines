@@ -284,7 +284,7 @@ for Subject in $Subjlist ; do
 	  TE="NONE"
 	  SpinEchoPhaseEncodeNegative="NONE"
 	  SpinEchoPhaseEncodePositive="NONE"
-	  DwellTime="NONE"
+	  SE_RO_Time="NONE"
 	  SEUnwarpDir="NONE"
 	  TopupConfig="NONE"
 	  ;;
@@ -326,7 +326,7 @@ for Subject in $Subjlist ; do
 	  
 	  SpinEchoPhaseEncodeNegative="NONE"
 	  SpinEchoPhaseEncodePositive="NONE"
-	  DwellTime="NONE"
+	  SE_RO_Time="NONE"
 	  SEUnwarpDir="NONE"
 	  TopupConfig="NONE"
 	  ;;
@@ -366,7 +366,7 @@ for Subject in $Subjlist ; do
 	      TE="NONE"
 	      SpinEchoPhaseEncodeNegative="NONE"
 	      SpinEchoPhaseEncodePositive="NONE"
-	      DwellTime="NONE"
+	      SE_RO_Time="NONE"
 	      SEUnwarpDir="NONE"
 	      TopupConfig="NONE"
 	  else
@@ -402,9 +402,11 @@ for Subject in $Subjlist ; do
   # We get it from the corresponding .json file:
 
   T1wSampleSpacing=`read_header_param "DwellTime" ${T1wInputImages[0]%.nii*}.json`
+  printf -v T1wSampleSpacing "%.9f" "${T1wSampleSpacing}"    # convert from scientific to float notation
   #T1wSampleSpacing=`echo ${T1wSampleSpacing} | awk '{ print sprintf("%.9f", $1); }'`
 
   T2wSampleSpacing=`read_header_param "DwellTime" ${T2wInputImages[0]%.nii*}.json`
+  printf -v T2wSampleSpacing "%.9f" "${T2wSampleSpacing}"    # convert from scientific to float notation
   #T2wSampleSpacing=`echo ${T2wSampleSpacing} | awk '{ print sprintf("%.9f", $1); }'`
   
   UnwarpDir="z" #z appears to be best or "NONE" if not used  -> this in only true for sagittal slices, for which the readout is along H>F (=z)
@@ -444,7 +446,7 @@ for Subject in $Subjlist ; do
       --echodiff="$TE" \
       --SEPhaseNeg="$SpinEchoPhaseEncodeNegative" \
       --SEPhasePos="$SpinEchoPhaseEncodePositive" \
-      --echospacing="$DwellTime" \
+      --SE_TotalReadoutTime="$SE_RO_Time" \
       --seunwarpdir="$SEUnwarpDir" \
       --t1samplespacing="$T1wSampleSpacing" \
       --t2samplespacing="$T2wSampleSpacing" \
@@ -475,7 +477,7 @@ for Subject in $Subjlist ; do
       --echodiff=${TE} \
       --SEPhaseNeg=${SpinEchoPhaseEncodeNegative} \
       --SEPhasePos=${SpinEchoPhaseEncodePositive} \
-      --echospacing=${DwellTime} \
+      --SE_TotalReadoutTime=${SE_RO_Time} \
       --seunwarpdir=${SEUnwarpDir} \     
       --t1samplespacing=${T1wSampleSpacing} \
       --t2samplespacing=${T2wSampleSpacing} \
