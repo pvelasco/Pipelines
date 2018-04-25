@@ -97,9 +97,9 @@ T1wFolder="$Path"/"sub-$Subject"/"$T1wFolder"
 ResultsFolder="$AtlasSpaceFolder"/"$ResultsFolder"/"$NameOffMRI"/"$AcqRun"
 ROIFolder="$AtlasSpaceFolder"/"$ROIFolder"
 
-# Get the FinalFMRIResolution from the input images:
-FinalFMRIResolution=`${FSLDIR}/bin/fslval "$ResultsFolder"/"$NameOffMRI" pixdim1`
-FinalFMRIResolution=`echo "scale=2; ${FinalFMRIResolution}/1" | bc -l`     # just keep 2 decimals
+# Get the FinalfMRIResolution from the input images:
+FinalfMRIResolution=`${FSLDIR}/bin/fslval "$ResultsFolder"/"$NameOffMRI" pixdim1`
+FinalfMRIResolution=`echo "scale=2; ${FinalfMRIResolution}/1" | bc -l`     # just keep 2 decimals
 
 
 #Make fMRI Ribbon
