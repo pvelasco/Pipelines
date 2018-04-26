@@ -61,6 +61,10 @@ if [ -n "${command_line_specified_subj_list}" ]; then
     # Split the different comma-separated subjects:
     Subjlist=(${command_line_specified_subj_list//,/ })
 fi
+if [ -n "${command_line_specified_task_list}" ]; then
+    # Split the different comma-separated tasks:
+    Tasklist=(${command_line_specified_task_list//,/ })
+fi
 
 # Requirements for this script
 #  installed versions of: FSL (version 5.0.6), FreeSurfer (version 5.3.0-HCP) , gradunwarp (HCP version 1.0.2)
