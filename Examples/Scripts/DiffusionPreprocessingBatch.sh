@@ -3,7 +3,8 @@
 get_batch_options() {
     local arguments=($@)
 
-    unset command_line_specified_study_folder
+    unset command_line_specified_BIDS_study_folder
+    unset command_line_specified_output_study_folder
     unset command_line_specified_subj_list
     unset command_line_specified_run_local
 
@@ -15,8 +16,12 @@ get_batch_options() {
         argument=${arguments[index]}
 
         case ${argument} in
-            --StudyFolder=*)
-                command_line_specified_study_folder=${argument/*=/""}
+            --BIDSStudyFolder=*)
+                command_line_specified_BIDS_study_folder=${argument/*=/""}
+                index=$(( index + 1 ))
+                ;;
+            --OutputStudyFolder=*)
+                command_line_specified_output_study_folder=${argument/*=/""}
                 index=$(( index + 1 ))
                 ;;
             --Subjlist=*)
@@ -31,15 +36,22 @@ get_batch_options() {
     done
 }
 
+#####     #####     Main     #####     #####
+
 get_batch_options $@
 
-StudyFolder="${HOME}/projects/Pipelines_ExampleData" #Location of Subject folders (named by subjectID)
+BIDSStudyFolder="${HOME}/projects/Pipelines_ExampleData" #Location of Subject folders (named by sub-subjectID)
 Subjlist="100307" #Space delimited list of subject IDs
 #EnvironmentScript="${HOME}/projects/Pipelines/Examples/Scripts/SetUpHCPPipeline.sh" #Pipeline environment script
 EnvironmentScript="${HCPPIPEDIR}/Examples/Scripts/SetUpHCPPipeline.sh" #Pipeline environment script
 
-if [ -n "${command_line_specified_study_folder}" ]; then
-    StudyFolder="${command_line_specified_study_folder}"
+if [ -n "${command_line_specified_BIDS_study_folder}" ]; then
+    BIDSStudyFolder="${command_line_specified_BIDS_study_folder}"
+fi
+# Default option for Output folder:
+OutputStudyFolder=$BIDSStudyFolder/Processed
+if [ -n "${command_line_specified_output_study_folder}" ]; then
+    OutputStudyFolder="${command_line_specified_output_study_folder}"
 fi
 
 if [ -n "${command_line_specified_subj_list}" ]; then
@@ -70,17 +82,13 @@ PRINTCOM=""
 #which is a prerequisite for this pipeline
 
 #Scripts called by this script do NOT assume anything about the form of the input names or paths.
-#This batch script assumes the HCP raw data naming convention, e.g.
+#This batch script assumes BIDS data organization and naming convention, e.g.:
 
-#	${StudyFolder}/${Subject}/unprocessed/3T/Diffusion/${SubjectID}_3T_DWI_dir95_RL.nii.gz
-#	${StudyFolder}/${Subject}/unprocessed/3T/Diffusion/${SubjectID}_3T_DWI_dir96_RL.nii.gz
-#	${StudyFolder}/${Subject}/unprocessed/3T/Diffusion/${SubjectID}_3T_DWI_dir97_RL.nii.gz
-#	${StudyFolder}/${Subject}/unprocessed/3T/Diffusion/${SubjectID}_3T_DWI_dir95_LR.nii.gz
-#	${StudyFolder}/${Subject}/unprocessed/3T/Diffusion/${SubjectID}_3T_DWI_dir96_LR.nii.gz
-#	${StudyFolder}/${Subject}/unprocessed/3T/Diffusion/${SubjectID}_3T_DWI_dir97_LR.nii.gz
+#	${BIDSStudyFolder}/sub-${Subject}[/ses-${session}]/dwi/sub-${Subject}[_ses-${session}]_acq-*[_run-<index>]_dwi.nii[.gz]
+
+#It reads the scan settings from the *.json files: Dwelltime, FieldMap Delta TE (if using), and $PhaseEncodinglist
 
 #Change Scan Settings: Echo Spacing and PEDir to match your images
-#These are set to match the HCP Protocol by default
 
 #If using gradient distortion correction, use the coefficents from your scanner
 #The HCP gradient distortion coefficents are only available through Siemens

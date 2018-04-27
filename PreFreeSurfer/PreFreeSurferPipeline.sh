@@ -200,8 +200,8 @@ Usage: PreeFreeSurferPipeline.sh [options]
   --SEPhasePos={LR, RL, NONE}    For the spin echo field map volume with a 
                                  positive phase encoding direction (RL in HCP 
                                  data), set to "NONE" if using regular FIELDMAP
-  --echospacing=<dwell time>     Echo Spacing or Dwelltime of Spin Echo Field
-                                 Map or "NONE" if not used
+  --SE_TotalReadoutTime=<SE_TotalReadoutTime>     Total Readout time for the Spin
+                                 Echo Distortion Map or "NONE" if not used
   --seunwarpdir={x, y, NONE}     Phase encoding direction of the spin echo 
                                  field map. (Only applies when using a spin echo
                                  field map.)
@@ -268,7 +268,7 @@ PhaseInputName=`opts_GetOpt1 "--fmapphase" $@`
 TE=`opts_GetOpt1 "--echodiff" $@`
 SpinEchoPhaseEncodeNegative=`opts_GetOpt1 "--SEPhaseNeg" $@`
 SpinEchoPhaseEncodePositive=`opts_GetOpt1 "--SEPhasePos" $@`
-DwellTime=`opts_GetOpt1 "--echospacing" $@`
+SE_RO_Time=`opts_GetOpt1 "--SE_TotalReadoutTime" $@`
 SEUnwarpDir=`opts_GetOpt1 "--seunwarpdir" $@`
 T1wSampleSpacing=`opts_GetOpt1 "--t1samplespacing" $@`
 T2wSampleSpacing=`opts_GetOpt1 "--t2samplespacing" $@`
@@ -306,7 +306,7 @@ log_Msg "PhaseInputName: ${PhaseInputName}"
 log_Msg "TE: ${TE}"
 log_Msg "SpinEchoPhaseEncodeNegative: ${SpinEchoPhaseEncodeNegative}"
 log_Msg "SpinEchoPhaseEncodePositive: ${SpinEchoPhaseEncodePositive}"
-log_Msg "DwellTime: ${DwellTime}"
+log_Msg "SE_RO_Time: ${SE_RO_Time}"
 log_Msg "SEUnwarpDir: ${SEUnwarpDir}"
 log_Msg "T1wSampleSpacing: ${T1wSampleSpacing}"
 log_Msg "T2wSampleSpacing: ${T2wSampleSpacing}"
@@ -497,7 +497,7 @@ if [[ ${AvgrdcSTRING} = "FIELDMAP" || ${AvgrdcSTRING} = "TOPUP" ]] ; then
         --echodiff=${TE} \
         --SEPhaseNeg=${SpinEchoPhaseEncodeNegative} \
         --SEPhasePos=${SpinEchoPhaseEncodePositive} \
-        --echospacing=${DwellTime} \
+        --SE_TotalReadoutTime=${SE_RO_Time} \
         --seunwarpdir=${SEUnwarpDir} \
         --t1sampspacing=${T1wSampleSpacing} \
         --t2sampspacing=${T2wSampleSpacing} \

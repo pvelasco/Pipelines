@@ -1,10 +1,7 @@
 #!/bin/bash 
 
 # TO-DO:
-# - Get the PE direction from the json file
-# - Either run it on all tasks/resting, or set tasks as argument
-# - Set "FinalfMRIResolution" as an argument?
-# - Should I set "FinalFMRIResolution" to the actual functional resolution? -> test it
+# - Give the option to run it on all functional runs (tasks and rest)
 # - Handle the case of FIELDMAP B0 correction
 # - Check the "intended for" field for the SE distortion map images
 
@@ -14,6 +11,7 @@ get_batch_options() {
     unset command_line_specified_BIDS_study_folder
     unset command_line_specified_output_study_folder
     unset command_line_specified_subj_list
+    unset command_line_task_list
     unset command_line_specified_run_local
 
     local index=0
@@ -36,6 +34,10 @@ get_batch_options() {
                 command_line_specified_subj_list=${argument/*=/""}
                 index=$(( index + 1 ))
                 ;;
+            --Tasklist=*)
+                command_line_specified_task_list=${argument/*=/""}
+                index=$(( index + 1 ))
+                ;;
             --runlocal)
                 command_line_specified_run_local="TRUE"
                 index=$(( index + 1 ))
@@ -50,7 +52,9 @@ get_batch_options $@
 
 # Default options:
 BIDSStudyFolder="${HOME}/projects/Pipelines_ExampleData" #Location of Subject folders (named by sub-subjectID)
-Subjlist="100307" #Space delimited list of subject IDs
+Subjlist="100307" #Comma-separated list of subject IDs
+Tasklist="face"   #Comma-separated list of tasks
+
 #EnvironmentScript="${HOME}/projects/Pipelines/Examples/Scripts/SetUpHCPPipeline.sh" #Pipeline environment script
 EnvironmentScript="${HCPPIPEDIR}/Examples/Scripts/SetUpHCPPipeline.sh" #Pipeline environment script
 
@@ -62,9 +66,13 @@ OutputStudyFolder=$BIDSStudyFolder/Processed
 if [ -n "${command_line_specified_output_study_folder}" ]; then
     OutputStudyFolder="${command_line_specified_output_study_folder}"
 fi
-
 if [ -n "${command_line_specified_subj_list}" ]; then
-    Subjlist="${command_line_specified_subj_list}"
+    # Split the different comma-separated subjects:
+    Subjlist=(${command_line_specified_subj_list//,/ })
+fi
+if [ -n "${command_line_specified_task_list}" ]; then
+    # Split the different comma-separated tasks:
+    Tasklist=(${command_line_specified_task_list//,/ })
 fi
 
 # Requirements for this script
@@ -114,38 +122,59 @@ PRINTCOM=""
 
 # Configuration common to all subjects, tasks and run numbers:
 
-Tasklist="face"     # process only the runs labeled "TASK"
-
-PhaseEncodinglist="y y-" #x for RL, x- for LR, y for PA, y- for AP
 DistortionCorrection="TOPUP" #FIELDMAP or TOPUP, distortion correction is required for accurate processing
 echo "user chose Topup B0 correction"
 
 MagnitudeInputName="NONE" #Expects 4D Magnitude volume with two 3D timepoints, set to NONE if using TOPUP
 PhaseInputName="NONE" #Expects a 3D Phase volume, set to NONE if using TOPUP
 DeltaTE="NONE" #2.46ms for 3T, 1.02ms for 7T, set to NONE if using TOPUP
-FinalFMRIResolution="2" #Target final resolution of fMRI data. 2mm is recommended for 3T HCP data, 1.6mm for 7T HCP data (i.e. should match acquired resolution).  Use 2.0 or 1.0 to avoid standard FSL templates
 # GradientDistortionCoeffs="${HCPPIPEDIR_Config}/coeff_SC72C_Skyra.grad" #Gradient distortion correction coefficents, set to NONE to turn off
 GradientDistortionCoeffs="NONE" # SEt to NONE to skip gradient distortion correction
 TopUpConfig="${HCPPIPEDIR_Config}/b02b0.cnf" #Topup config if using TOPUP, set to NONE if using regular FIELDMAP
 
-for Subject in $Subjlist ; do
-  echo $Subject
+for Subject in ${Subjlist[*]} ; do
+  echo ""
+  echo ""
+  echo "########################      $Subject      ########################"
 
-  i=1
-  for fMRIName in $Tasklist ; do
-    echo "  ${fMRIName}"
+  for fMRIName in ${Tasklist[*]} ; do
+    echo ""
+    echo "###     ${fMRIName}     ###"
 
-    UnwarpDir=`echo $PhaseEncodinglist | cut -d " " -f $i`
     # TO-DO: handle the multi-session subjects
     for fMRITimeSeries in `ls ${BIDSStudyFolder}/sub-${Subject}/func/sub-${Subject}_task-${fMRIName}*_bold.nii*`; do
+	echo ""
+	echo "       ${fMRITimeSeries}"
 	## to distinguish between different runs and acquisitions:
 	#acqRun=${fMRITimeSeries##*_task-${fMRIName}_}
 	#acqRun=${acqRun%_bold.nii*}
-	
+
+	# Final fMRI Resolution:
+	#Target final resolution of fMRI data. 2mm is recommended for 3T HCP data, 1.6mm for 7T HCP data (i.e. should match acquired resolution).  Use 2.0 or 1.0 to avoid standard FSL templates
+	#FinalFMRIResolution="2"
+	FinalFMRIResolution=`${FSLDIR}/bin/fslval ${fMRITimeSeries} pixdim1`
+	FinalFMRIResolution=`echo "scale=2; ${FinalFMRIResolution}/1" | bc -l` 
+
+	##   Get the Phase Encoding direction from the json file:   ##
+	#UnwarpDir=`echo $PhaseEncodinglist | cut -d " " -f $i`
+	PEDir=`read_header_param PhaseEncodingDirection ${fMRITimeSeries%.nii*}.json`
+	PEDir="${PEDir%\"}"   # remove trailing quote (")
+	PEDir="${PEDir#\"}"   # remove leading quote (")
+	# The HCP Pipelines want x/y/z, rather than i/j/k:
+	if   [ $PEDir = "i"  ]; then UnwarpDir="x";
+	elif [ $PEDir = "i-" ]; then UnwarpDir="x-";
+	elif [ $PEDir = "j"  ]; then UnwarpDir="y";
+	elif [ $PEDir = "j-" ]; then UnwarpDir="y-";
+	elif [ $PEDir = "k"  ]; then UnwarpDir="z";
+	elif [ $PEDir = "k-" ]; then UnwarpDir="z-";
+	fi
+
 	#A single band reference image (SBRef) is recommended if using multiband, set to NONE if you want to use the first volume of the timeseries for motion correction:
 	fMRISBRef="${fMRITimeSeries%_bold.nii*}_sbref.nii*"
 	if [ ! -f $fMRISBRef ]; then
 	    fMRISBRef="NONE"
+	else
+	    fMRISBRef=`ls $fMRISBRef`
 	fi
 
 	##   Settings for the B0 disortion correction   ##
@@ -224,10 +253,14 @@ for Subject in $Subjlist ; do
 
 	echo ". ${EnvironmentScript}"
 
+	echo ""
+	echo "----------------------------------------------"
+	echo ""
     done     # loop through run number
 	
-    i=$(($i+1))
+    echo ""
   done       # loop through task name
+  echo ""
 done         # loop through subjects
 
 

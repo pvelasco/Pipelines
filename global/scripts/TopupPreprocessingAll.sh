@@ -1,6 +1,6 @@
 #!/bin/bash 
 set -e
-set -xv
+#set -xv    # un-comment this for the script (and all called within) to be printed out to stdout
 # Requirements for this script
 #  installed versions of: FSL (version 5.0.6), HCP-gradunwarp (version 1.0.2)
 #  environment: as in SetUpHCPPipeline.sh  (or individually: FSLDIR, HCPPIPEDIR_Global, HCPPIPEDIR_Bin and PATH for gradient_unwarp.py)
@@ -147,33 +147,88 @@ dimtTwo=`${FSLDIR}/bin/fslval ${WD}/PhaseTwo dim4`
 
 echo "Total readout time for SE distortion images is $SE_RO_Time secs"
 
-# Calculate the readout time and populate the parameter file appropriately
+###   Populate the parameter file appropriately:   ###
+source ${HCPPIPEDIR_Global}/get_params_from_json.shlib   #Get parameters from json file.
+##  Phase One:  ##
+PEDir=`read_header_param PhaseEncodingDirection ${PhaseEncodeOne%.nii*}.json`
+PEDir="${PEDir%\"}"   # remove trailing quote (")
+PEDir="${PEDir#\"}"   # remove leading quote (")
+# The HCP Pipelines want x/y/z, rather than i/j/k:
+if   [ $PEDir = "i"  ]; then PEDirOne="x";
+elif [ $PEDir = "i-" ]; then PEDirOne="x-";
+elif [ $PEDir = "j"  ]; then PEDirOne="y";
+elif [ $PEDir = "j-" ]; then PEDirOne="y-";
+elif [ $PEDir = "k"  ]; then PEDirOne="z";
+elif [ $PEDir = "k-" ]; then PEDirOne="z-";
+fi
 # X direction phase encode
-if [[ $UnwarpDir = "x" || $UnwarpDir = "x-" || $UnwarpDir = "-x" ]] ; then
+if [[ $PEDirOne = "x" ]] ; then
+  i=1
+  while [ $i -le $dimtOne ] ; do
+    echo "1 0 0 $SE_RO_Time" >> $txtfname
+    i=`echo "$i + 1" | bc`
+  done
+# -X direction phase encode
+elif [[ $PEDirOne = "x-" || $PEDirOne = "-x" ]] ; then
   i=1
   while [ $i -le $dimtOne ] ; do
     echo "-1 0 0 $SE_RO_Time" >> $txtfname
-    ShiftOne="x-"     # TO-DO: can I remove this line?
-    i=`echo "$i + 1" | bc`
-  done
-  i=1
-  while [ $i -le $dimtTwo ] ; do
-    echo "1 0 0 $SE_RO_Time" >> $txtfname
-    ShiftTwo="x"     # TO-DO: can I remove this line?
     i=`echo "$i + 1" | bc`
   done
 # Y direction phase encode
-elif [[ $UnwarpDir = "y" || $UnwarpDir = "y-" || $UnwarpDir = "-y" ]] ; then
+elif [[ $PEDirOne = "y" ]] ; then
+  i=1
+  while [ $i -le $dimtOne ] ; do
+    echo "0 1 0 $SE_RO_Time" >> $txtfname
+    i=`echo "$i + 1" | bc`
+  done
+# -Y direction phase encode
+elif [[ $PEDirOne = "y-" || $PEDirOne = "-y" ]] ; then
   i=1
   while [ $i -le $dimtOne ] ; do
     echo "0 -1 0 $SE_RO_Time" >> $txtfname
-    ShiftOne="y-"     # TO-DO: can I remove this line?
     i=`echo "$i + 1" | bc`
   done
+fi
+
+##  Phase Two:  ##
+PEDir=`read_header_param PhaseEncodingDirection ${PhaseEncodeTwo%.nii*}.json`
+PEDir="${PEDir%\"}"   # remove trailing quote (")
+PEDir="${PEDir#\"}"   # remove leading quote (")
+# The HCP Pipelines want x/y/z, rather than i/j/k:
+if   [ $PEDir = "i"  ]; then PEDirTwo="x";
+elif [ $PEDir = "i-" ]; then PEDirTwo="x-";
+elif [ $PEDir = "j"  ]; then PEDirTwo="y";
+elif [ $PEDir = "j-" ]; then PEDirTwo="y-";
+elif [ $PEDir = "k"  ]; then PEDirTwo="z";
+elif [ $PEDir = "k-" ]; then PEDirTwo="z-";
+fi
+# X direction phase encode
+if [[ $PEDirTwo = "x" ]] ; then
+  i=1
+  while [ $i -le $dimtTwo ] ; do
+    echo "1 0 0 $SE_RO_Time" >> $txtfname
+    i=`echo "$i + 1" | bc`
+  done
+# -X direction phase encode
+elif [[ $PEDirTwo = "x-" || $PEDirTwo = "-x" ]] ; then
+  i=1
+  while [ $i -le $dimtTwo ] ; do
+    echo "-1 0 0 $SE_RO_Time" >> $txtfname
+    i=`echo "$i + 1" | bc`
+  done
+# Y direction phase encode
+elif [[ $PEDirTwo = "y" ]] ; then
   i=1
   while [ $i -le $dimtTwo ] ; do
     echo "0 1 0 $SE_RO_Time" >> $txtfname
-    ShiftTwo="y"     # TO-DO: can I remove this line?
+    i=`echo "$i + 1" | bc`
+  done
+# -Y direction phase encode
+elif [[ $PEDirTwo = "y-" || $PEDirTwo = "-y" ]] ; then
+  i=1
+  while [ $i -le $dimtTwo ] ; do
+    echo "0 -1 0 $SE_RO_Time" >> $txtfname
     i=`echo "$i + 1" | bc`
   done
 fi
@@ -211,8 +266,21 @@ fi
 #   scout_TotalReadoutTime is different from the SE_TotalReadoutTime, scale it:
 RO_time_scale=`echo "scale=9; ${scout_RO_Time} / ${SE_RO_Time}" | bc -l` 
 
-# UNWARP DIR = x,y
-if [[ $UnwarpDir = "x" || $UnwarpDir = "y" ]] ; then
+
+###   UNWARP   ###
+if [[ $UnwarpDir = $PEDirOne ]] ; then
+  # select the first volume from PhaseOne
+  VolumeNumber=$((0 + 1))
+  vnum=`${FSLDIR}/bin/zeropad $VolumeNumber 2`
+  # register scout to SE input (PhaseOne) + combine motion and distortion correction
+  ${FSLDIR}/bin/flirt -dof 6 -interp spline -in ${WD}/SBRef.nii.gz -ref ${WD}/PhaseOne_gdc -omat ${WD}/SBRef2PhaseOne_gdc.mat -out ${WD}/SBRef2PhaseOne_gdc
+  ${FSLDIR}/bin/convert_xfm -omat ${WD}/SBRef2WarpField.mat -concat ${WD}/MotionMatrix_${vnum}.mat ${WD}/SBRef2PhaseOne_gdc.mat
+  # Scale the WarpField to correct for differences in the TotalReadoutTime between the SE- and the scout- images:
+  ${FSLDIR}/bin/fslmaths ${WD}/WarpField_${vnum} -mul ${RO_time_scale} ${WD}/WarpField_${vnum}_scaled
+  ${FSLDIR}/bin/convertwarp --relout --rel -r ${WD}/PhaseOne_gdc --premat=${WD}/SBRef2WarpField.mat --warp1=${WD}/WarpField_${vnum}_scaled --out=${WD}/WarpField.nii.gz
+  ${FSLDIR}/bin/imcp ${WD}/Jacobian_${vnum}.nii.gz ${WD}/Jacobian.nii.gz
+  SBRefPhase=One
+else
   # select the first volume from PhaseTwo
   VolumeNumber=$(($dimtOne + 1))
   vnum=`${FSLDIR}/bin/zeropad $VolumeNumber 2`
@@ -224,29 +292,16 @@ if [[ $UnwarpDir = "x" || $UnwarpDir = "y" ]] ; then
   ${FSLDIR}/bin/convertwarp --relout --rel -r ${WD}/PhaseTwo_gdc --premat=${WD}/SBRef2WarpField.mat --warp1=${WD}/WarpField_${vnum}_scaled --out=${WD}/WarpField.nii.gz
   ${FSLDIR}/bin/imcp ${WD}/Jacobian_${vnum}.nii.gz ${WD}/Jacobian.nii.gz
   SBRefPhase=Two
-# UNWARP DIR = -x,-y
-elif [[ $UnwarpDir = "x-" || $UnwarpDir = "-x" || $UnwarpDir = "y-" || $UnwarpDir = "-y" ]] ; then
-  # select the first volume from PhaseOne
-  VolumeNumber=$((0 + 1))
-  vnum=`${FSLDIR}/bin/zeropad $VolumeNumber 2`
-  # register scout to SE input (PhaseOne) + combine motion and distortion correction
-  ${FSLDIR}/bin/flirt -dof 6 -interp spline -in ${WD}/SBRef.nii.gz -ref ${WD}/PhaseOne_gdc -omat ${WD}/SBRef2PhaseOne_gdc.mat -out ${WD}/SBRef2PhaseOne_gdc
-  ${FSLDIR}/bin/convert_xfm -omat ${WD}/SBRef2WarpField.mat -concat ${WD}/MotionMatrix_${vnum}.mat ${WD}/SBRef2PhaseOne_gdc.mat
-# TO-DO: scale to correct for differences in the TotalReadoutTime between the SE- and the scout- images:
-  ${FSLDIR}/bin/fslmaths ${WD}/WarpField_${vnum} -mul ${RO_time_scale} ${WD}/WarpField_${vnum}_scaled
-  ${FSLDIR}/bin/convertwarp --relout --rel -r ${WD}/PhaseOne_gdc --premat=${WD}/SBRef2WarpField.mat --warp1=${WD}/WarpField_${vnum}_scaled --out=${WD}/WarpField.nii.gz
-  ${FSLDIR}/bin/imcp ${WD}/Jacobian_${vnum}.nii.gz ${WD}/Jacobian.nii.gz
-  SBRefPhase=One
 fi
 
 # PhaseTwo (first vol) - warp and Jacobian modulate to get distortion corrected output
 VolumeNumber=$(($dimtOne + 1))
-  vnum=`${FSLDIR}/bin/zeropad $VolumeNumber 2`
+vnum=`${FSLDIR}/bin/zeropad $VolumeNumber 2`
 ${FSLDIR}/bin/applywarp --rel --interp=spline -i ${WD}/PhaseTwo_gdc -r ${WD}/PhaseTwo_gdc --premat=${WD}/MotionMatrix_${vnum}.mat -w ${WD}/WarpField_${vnum} -o ${WD}/PhaseTwo_gdc_dc
 ${FSLDIR}/bin/fslmaths ${WD}/PhaseTwo_gdc_dc -mul ${WD}/Jacobian_${vnum} ${WD}/PhaseTwo_gdc_dc_jac
 # PhaseOne (first vol) - warp and Jacobian modulate to get distortion corrected output
 VolumeNumber=$((0 + 1))
-  vnum=`${FSLDIR}/bin/zeropad $VolumeNumber 2`
+vnum=`${FSLDIR}/bin/zeropad $VolumeNumber 2`
 ${FSLDIR}/bin/applywarp --rel --interp=spline -i ${WD}/PhaseOne_gdc -r ${WD}/PhaseOne_gdc --premat=${WD}/MotionMatrix_${vnum}.mat -w ${WD}/WarpField_${vnum} -o ${WD}/PhaseOne_gdc_dc
 ${FSLDIR}/bin/fslmaths ${WD}/PhaseOne_gdc_dc -mul ${WD}/Jacobian_${vnum} ${WD}/PhaseOne_gdc_dc_jac
 
@@ -283,20 +338,25 @@ echo " END: `date`" >> $WD/log.txt
 ########################################## QA STUFF ########################################## 
 
 if [ -e $WD/qa.txt ] ; then rm -f $WD/qa.txt ; fi
-echo "cd `pwd`" >> $WD/qa.txt
+echo "# First, cd to the directory with this file is found." >> $WD/qa.txt
+echo "" >> $WD/qa.txt
+echo "# Inspect topup correction:" >> $WD/qa.txt
+echo "fslview ./BothPhases ./Magnitudes ./Magnitude" >> $WD/qa.txt
 echo "# Inspect results of various corrections (phase one)" >> $WD/qa.txt
-echo "fslview ${WD}/PhaseOne ${WD}/PhaseOne_gdc ${WD}/PhaseOne_gdc_dc ${WD}/PhaseOne_gdc_dc_jac" >> $WD/qa.txt
+echo "fslview ./PhaseOne ./PhaseOne_gdc ./PhaseOne_gdc_dc ./PhaseOne_gdc_dc_jac" >> $WD/qa.txt
 echo "# Inspect results of various corrections (phase two)" >> $WD/qa.txt
-echo "fslview ${WD}/PhaseTwo ${WD}/PhaseTwo_gdc ${WD}/PhaseTwo_gdc_dc ${WD}/PhaseTwo_gdc_dc_jac" >> $WD/qa.txt
+echo "fslview ./PhaseTwo ./PhaseTwo_gdc ./PhaseTwo_gdc_dc ./PhaseTwo_gdc_dc_jac" >> $WD/qa.txt
+echo "# Compare phases one and two" >> $WD/qa.txt
+echo "fslview ./PhaseOne_gdc_dc ./PhaseTwo_gdc_dc ./PhaseOne_gdc_dc_jac ./PhaseTwo_gdc_dc_jac" >> $WD/qa.txt
 echo "# Check linear registration of Scout to SE EPI" >> $WD/qa.txt
-echo "fslview ${WD}/Phase${SBRefPhase}_gdc ${WD}/SBRef2Phase${SBRefPhase}_gdc" >> $WD/qa.txt
+echo "fslview ./Phase${SBRefPhase}_gdc ./SBRef2Phase${SBRefPhase}_gdc" >> $WD/qa.txt
 echo "# Inspect results of various corrections to scout" >> $WD/qa.txt
-echo "fslview ${WD}/SBRef ${WD}/SBRef_dc ${WD}/SBRef_dc_jac" >> $WD/qa.txt
+echo "fslview ./SBRef ./SBRef_dc ./SBRef_dc_jac" >> $WD/qa.txt
 echo "# Visual check of warpfield and Jacobian" >> $WD/qa.txt
-echo "fslview ${DistortionCorrectionWarpFieldOutput} ${JacobianOutput}" >> $WD/qa.txt
-
-
+if [ ! -z "${DistortionCorrectionWarpFieldOutput}" ] ; then
+  echo "fslview ../`basename ${DistortionCorrectionWarpFieldOutput}` ../`basename ${JacobianOutput}`" >> $WD/qa.txt
+else
+  echo "fslview ../`basename ${JacobianOutput}`" >> $WD/qa.txt
+fi
 ##############################################################################################
-
-
 
