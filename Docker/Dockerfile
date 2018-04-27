@@ -126,7 +126,7 @@ RUN yum -y update \
 # Install HCP Pipelines v.3.4.0 from github, and get folder where it is installed.
 ENV HCPPIPEDIR=${INSTALL_FOLDER}/Pipelines
 RUN mkdir ${HCPPIPEDIR} \
-    && curl -sSL https://github.com/pvelasco/Pipelines/archive/GenericfMRI_BIDS.tar.gz \
+    && curl -sSL https://github.com/pvelasco/Pipelines/archive/noT2w.tar.gz \
         | tar -vxz -C ${HCPPIPEDIR} --strip-components=1
 
 

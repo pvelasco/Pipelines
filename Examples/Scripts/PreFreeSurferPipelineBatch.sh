@@ -147,16 +147,23 @@ get_T2s() {
 
   local T2wImages     # list with all high-res T2 images
   if [ -d ${BIDSStudyFolder}/sub-${Subject}/ses-* ]; then
-    T2wImages=`ls ${BIDSStudyFolder}/sub-${Subject}/ses-*/anat/sub-${Subject}_ses-*_acq-highres_*_T2w.nii*`
+    # try/catch:
+    T2wImages=`ls ${BIDSStudyFolder}/sub-${Subject}/ses-*/anat/sub-${Subject}_ses-*_acq-highres_*_T2w.nii*` || T2wImages="NONE"
   else
-    T2wImages=`ls ${BIDSStudyFolder}/sub-${Subject}/anat/sub-${Subject}*_acq-highres_*_T2w.nii*`
+    # try/catch:
+    T2wImages=`ls ${BIDSStudyFolder}/sub-${Subject}/anat/sub-${Subject}*_acq-highres_*_T2w.nii*` || T2wImages="NONE"
   fi
   #echo "T2wImages: ${T2wImages[@]}"
 
-  # Get the unique ones (e.g.: normalized and unnormalized):
-  T2wInputImages=`get_Input_TXw_Images ${T2wImages[@]}`
- 
-  echo "Found ${#T2wInputImages[@]} T2w Images for subject ${Subject}"
+  if [ ! $T2wImages = "NONE" ] ; then
+    # Get the unique ones (e.g.: normalized and unnormalized):
+    T2wInputImages=`get_Input_TXw_Images ${T2wImages[@]}`
+    echo "Found ${#T2wInputImages[@]} T2w Images for subject ${Subject}"
+  else
+    T2wInputImages="NONE"
+    echo "No T2w Images were found for subject ${Subject}"
+  fi
+
   #echo "T2wInputImages: ${T2wInputImages[@]}"
 
   return  
@@ -308,20 +315,22 @@ for Subject in $Subjlist ; do
 	  ##   Check shims consistency   ##
 	  
 	  # Before applying blindly, check that the "ShimSetting" for the fmap images was
-	  #   identical to that of the high-res images (check with the first high-res of each type):
+	  #   identical to that of the T1 high-res images (check just the first one):
 	  shimGRE=`read_multiline_header_param "ShimSetting" ${MagnitudeInputName%.nii*}.json`
 	  shimT1w=`read_multiline_header_param "ShimSetting" ${T1wInputImages[0]%.nii*}.json`
-	  shimT2w=`read_multiline_header_param "ShimSetting" ${T2wInputImages[0]%.nii*}.json`
-	  #echo "$shimGRE == $shimHires?"
-	  if [ ! "$shimGRE" == "$shimT1w" ] || [ ! "$shimGRE" == "$shimT2w" ]; then
-	      echo "WARNING: Shims settings for anatomical images and GRE Fieldmaps are not the same."
-	      echo "WARNING: We're not doing B0 correction for Subject $Subject"
-	      AvgrdcSTRING="NONE"
-	      MagnitudeInputName="NONE"
-	      PhaseInputName="NONE"
-	      TE="NONE"
+	  #echo "$shimGRE == $shimT1w?"
+	  if [ ! "$shimGRE" == "$shimT1w" ]; then
+	    # If the shims are different:
+	    echo "WARNING: Shims settings for anatomical images and GRE Fieldmaps are not the same."
+	    echo "WARNING: We're not doing B0 correction for Subject $Subject"
+	    AvgrdcSTRING="NONE"
+	    MagnitudeInputName="NONE"
+	    PhaseInputName="NONE"
+	    TE="NONE"
 	  else
-	      TE=`get_DeltaTE ${PhaseInputName%.nii*}.json`
+	    # Do the correction (even though the shims for the T2w might be different I still want
+	    #   the correction done):
+	    TE=`get_DeltaTE ${PhaseInputName%.nii*}.json`
 	  fi
 	  
 	  SpinEchoPhaseEncodeNegative="NONE"
@@ -351,13 +360,13 @@ for Subject in $Subjlist ; do
 
 	  ##   Check shims consistency   ##
 	  
-	  # Before applying blindly, check that the "ShimSetting" for the SE images was
-	  #   identical to that of the high-res images (check with the first high-res):
+	  # Before applying blindly, check that the "ShimSetting" for the fmap images was
+	  #   identical to that of the T1 high-res images (check just the first one):
 	  shimSENeg=`read_multiline_header_param "ShimSetting" ${SpinEchoPhaseEncodeNegative%.nii*}.json`
 	  shimT1w=`read_multiline_header_param "ShimSetting" ${T1wInputImages[0]%.nii*}.json`
-	  shimT2w=`read_multiline_header_param "ShimSetting" ${T2wInputImages[0]%.nii*}.json`
-	  #echo "$shimSENeg == $shimHires?"
-	  if [ ! "$shimSENeg" == "$shimT1w" ] || [ ! "$shimSENeg" == "$shimT2w" ]; then
+	  #echo "$shimSENeg == $shimT1w?"
+	  if [ ! "$shimSENeg" == "$shimT1w" ]; then
+	      # If the shims are different:
 	      echo "WARNING: Shims settings for anatomical images and SE Distortion Maps are not the same."
 	      echo "WARNING: We're not doing B0 correction for Subject $Subject"
 	      AvgrdcSTRING="NONE"
@@ -370,7 +379,9 @@ for Subject in $Subjlist ; do
 	      SEUnwarpDir="NONE"
 	      TopupConfig="NONE"
 	  else
-	      DwellTime=`get_DwellTime ${SpinEchoPhaseEncodeNegative%.nii*}.json`
+	      # Do the correction (even though the shims for the T2w might be different I still want
+	      #   the correction done):
+	      SE_RO_Time=`read_header_param TotalReadoutTime ${SpinEchoPhaseEncodeNegative%.nii*}.json`
 
 	      # SEUnwarpDir: x or y (minus or not does not matter) "NONE" if not used
 	      myTmp=`read_header_param "PhaseEncodingDirection" ${SpinEchoPhaseEncodeNegative%.nii*}.json`
@@ -405,9 +416,11 @@ for Subject in $Subjlist ; do
   printf -v T1wSampleSpacing "%.9f" "${T1wSampleSpacing}"    # convert from scientific to float notation
   #T1wSampleSpacing=`echo ${T1wSampleSpacing} | awk '{ print sprintf("%.9f", $1); }'`
 
-  T2wSampleSpacing=`read_header_param "DwellTime" ${T2wInputImages[0]%.nii*}.json`
-  printf -v T2wSampleSpacing "%.9f" "${T2wSampleSpacing}"    # convert from scientific to float notation
-  #T2wSampleSpacing=`echo ${T2wSampleSpacing} | awk '{ print sprintf("%.9f", $1); }'`
+  if [ ! $T2wInputImages = "NONE" ] ; then
+      T2wSampleSpacing=`read_header_param "DwellTime" ${T2wInputImages[0]%.nii*}.json`
+      printf -v T2wSampleSpacing "%.9f" "${T2wSampleSpacing}"    # convert from scientific to float notation
+      #T2wSampleSpacing=`echo ${T2wSampleSpacing} | awk '{ print sprintf("%.9f", $1); }'`
+  fi
   
   UnwarpDir="z" #z appears to be best or "NONE" if not used  -> this in only true for sagittal slices, for which the readout is along H>F (=z)
   # TO-DO: get the readout direction (as x, y or z)

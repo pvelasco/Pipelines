@@ -200,8 +200,13 @@ Usage: PreeFreeSurferPipeline.sh [options]
   --SEPhasePos={LR, RL, NONE}    For the spin echo field map volume with a 
                                  positive phase encoding direction (RL in HCP 
                                  data), set to "NONE" if using regular FIELDMAP
+<<<<<<< Updated upstream
   --SE_TotalReadoutTime=<SE_TotalReadoutTime>     Total Readout time for the Spin
                                  Echo Distortion Map or "NONE" if not used
+=======
+  --SE_TotalReadoutTime=<SE_TotalReadoutTime>     Total Readout time for the Spin Echo Distortion
+                                 Map or "NONE" if not used
+>>>>>>> Stashed changes
   --seunwarpdir={x, y, NONE}     Phase encoding direction of the spin echo 
                                  field map. (Only applies when using a spin echo
                                  field map.)
@@ -319,7 +324,11 @@ log_Msg "BiasFieldSmoothingSigma: ${BiasFieldSmoothingSigma}"
 # Naming Conventions
 T1wImage="T1w"
 T1wFolder="T1w" #Location of T1w images
-T2wImage="T2w" 
+if [ ! $T2wInputImages = "NONE" ] ; then
+  T2wImage="T2w" 
+else
+  T2wImage="NONE"
+fi
 T2wFolder="T2w" #Location of T2w images
 AtlasSpaceFolder="MNINonLinear"
 
@@ -341,9 +350,11 @@ if [ ! -e ${T1wFolder}/xfms ] ; then
     mkdir -p ${T1wFolder}/xfms/
 fi
 
-if [ ! -e ${T2wFolder}/xfms ] ; then
-	log_Msg "mkdir -p ${T2wFolder}/xfms/"
+if [ ! $T2wInputImages = "NONE" ] ; then
+  if [ ! -e ${T2wFolder}/xfms ] ; then
+    log_Msg "mkdir -p ${T2wFolder}/xfms/"
     mkdir -p ${T2wFolder}/xfms/
+  fi
 fi
 
 if [ ! -e ${AtlasSpaceFolder}/xfms ] ; then
@@ -367,7 +378,11 @@ log_Msg "POSIXLY_CORRECT="${POSIXLY_CORRECT}
 #  - Perform Brain Extraction(FNIRT-based Masking)
 # ------------------------------------------------------------------------------
 
-Modalities="T1w T2w"
+if [ ! $T2wInputImages = "NONE" ] ; then
+  Modalities="T1w T2w"
+else
+  Modalities="T1w"
+fi
 
 for TXw in ${Modalities} ; do
     log_Msg "Processing Modality: " $TXw
@@ -464,7 +479,6 @@ for TXw in ${Modalities} ; do
         --outbrain=${TXwFolder}/${TXwImage}_acpc_brain \
     	--outbrainmask=${TXwFolder}/${TXwImage}_acpc_brain_mask \
     	--fnirtconfig=${FNIRTConfig}
-
 done 
 
 # End of looping over modalities (T1w and T2w)
@@ -486,7 +500,8 @@ if [[ ${AvgrdcSTRING} = "FIELDMAP" || ${AvgrdcSTRING} = "TOPUP" ]] ; then
     log_Msg "mkdir -p ${wdir}"
     mkdir -p ${wdir}
 
-    ${RUN} ${HCPPIPEDIR_PreFS}/T2wToT1wDistortionCorrectAndReg.sh \
+    if [ ! $T2wInputImages = "NONE" ] ; then
+      ${RUN} ${HCPPIPEDIR_PreFS}/T2wToT1wDistortionCorrectAndReg.sh \
         --workingdir=${wdir} \
         --t1=${T1wFolder}/${T1wImage}_acpc \
         --t1brain=${T1wFolder}/${T1wImage}_acpc_brain \
@@ -510,6 +525,28 @@ if [[ ${AvgrdcSTRING} = "FIELDMAP" || ${AvgrdcSTRING} = "TOPUP" ]] ; then
         --method=${AvgrdcSTRING} \
         --topupconfig=${TopupConfig} \
         --gdcoeffs=${GradientDistortionCoeffs}
+    else
+      ${RUN} ${HCPPIPEDIR_PreFS}/T2wToT1wDistortionCorrectAndReg.sh \
+        --workingdir=${wdir} \
+        --t1=${T1wFolder}/${T1wImage}_acpc \
+        --t1brain=${T1wFolder}/${T1wImage}_acpc_brain \
+        --t2="NONE" \
+        --fmapmag=${MagnitudeInputName} \
+        --fmapphase=${PhaseInputName} \
+        --echodiff=${TE} \
+        --SEPhaseNeg=${SpinEchoPhaseEncodeNegative} \
+        --SEPhasePos=${SpinEchoPhaseEncodePositive} \
+        --SE_TotalReadoutTime=${SE_RO_Time} \
+        --seunwarpdir=${SEUnwarpDir} \
+        --t1sampspacing=${T1wSampleSpacing} \
+        --unwarpdir=${UnwarpDir} \
+        --ot1=${T1wFolder}/${T1wImage}_acpc_dc \
+        --ot1brain=${T1wFolder}/${T1wImage}_acpc_dc_brain \
+        --ot1warp=${T1wFolder}/xfms/${T1wImage}_dc \
+        --method=${AvgrdcSTRING} \
+        --topupconfig=${TopupConfig} \
+        --gdcoeffs=${GradientDistortionCoeffs}
+    fi
 else
     log_Msg "NOT PERFORMING READOUT DISTORTION CORRECTION"
     wdir=${T2wFolder}/T2wToT1wReg
@@ -523,17 +560,32 @@ else
     log_Msg "mkdir -p ${wdir}"
     mkdir -p ${wdir}
 
-    ${RUN} ${HCPPIPEDIR_PreFS}/T2wToT1wReg.sh \
-        ${wdir} \
-        ${T1wFolder}/${T1wImage}_acpc \
-        ${T1wFolder}/${T1wImage}_acpc_brain \
-        ${T2wFolder}/${T2wImage}_acpc \
-        ${T2wFolder}/${T2wImage}_acpc_brain \
-        ${T1wFolder}/${T1wImage}_acpc_dc \
-        ${T1wFolder}/${T1wImage}_acpc_dc_brain \
-        ${T1wFolder}/xfms/${T1wImage}_dc \
-        ${T1wFolder}/${T2wImage}_acpc_dc \
-        ${T1wFolder}/xfms/${T2wImage}_reg_dc
+    if [ ! $T2wInputImages = "NONE" ] ; then
+	${RUN} ${HCPPIPEDIR_PreFS}/T2wToT1wReg.sh \
+          ${wdir} \
+          ${T1wFolder}/${T1wImage}_acpc \
+          ${T1wFolder}/${T1wImage}_acpc_brain \
+          ${T2wFolder}/${T2wImage}_acpc \
+          ${T2wFolder}/${T2wImage}_acpc_brain \
+          ${T1wFolder}/${T1wImage}_acpc_dc \
+          ${T1wFolder}/${T1wImage}_acpc_dc_brain \
+          ${T1wFolder}/xfms/${T1wImage}_dc \
+          ${T1wFolder}/${T2wImage}_acpc_dc \
+          ${T1wFolder}/xfms/${T2wImage}_reg_dc
+    else
+	${RUN} ${HCPPIPEDIR_PreFS}/T2wToT1wReg.sh \
+          ${wdir} \
+          ${T1wFolder}/${T1wImage}_acpc \
+          ${T1wFolder}/${T1wImage}_acpc_brain \
+          "NONE" \
+          "NONE" \
+          ${T1wFolder}/${T1wImage}_acpc_dc \
+          ${T1wFolder}/${T1wImage}_acpc_dc_brain \
+          ${T1wFolder}/xfms/${T1wImage}_dc \
+          "NONE" \
+          "NONE"
+    fi
+	
 fi
 
 # ------------------------------------------------------------------------------
@@ -549,7 +601,8 @@ fi
 log_Msg "mkdir -p ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w" 
 mkdir -p ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w 
 
-${RUN} ${HCPPIPEDIR_PreFS}/BiasFieldCorrection_sqrtT1wXT1w.sh \
+if [ ! $T2wInputImages = "NONE" ] ; then
+  ${RUN} ${HCPPIPEDIR_PreFS}/BiasFieldCorrection_sqrtT1wXT1w.sh \
     --workingdir=${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w \
     --T1im=${T1wFolder}/${T1wImage}_acpc_dc \
     --T1brain=${T1wFolder}/${T1wImage}_acpc_dc_brain \
@@ -560,6 +613,35 @@ ${RUN} ${HCPPIPEDIR_PreFS}/BiasFieldCorrection_sqrtT1wXT1w.sh \
     --oT2im=${T1wFolder}/${T2wImage}_acpc_dc_restore \
     --oT2brain=${T1wFolder}/${T2wImage}_acpc_dc_restore_brain \
     ${BiasFieldSmoothingSigma}
+else
+  # Do the bias correction using fsl_anat.
+  # Just make sure you output the images that will be needed in future steps
+  ${FSLDIR}/bin/fsl_anat \
+      -o ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w \
+      --noreorient --nocrop \
+      --nocleanup \
+      -i ${T1wFolder}/${T1wImage}_acpc_dc
+  #--noreg --nononlinreg --noseg --nosubcortseg \
+
+  # Move the files to where the Pipeline expects them:
+  mv ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_biascorr_brain.nii.gz ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w/${T1wImage}_acpc_dc_brain.nii.gz
+  mv ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_fast_bias.nii.gz ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w/bias_raw.nii.gz
+
+  # Create the "qa.txt" file, similar to the one created by
+  #   BiasFieldCorrection_sqrtT1wXT1w:
+  qafile=${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w/qa.txt
+  if [ -e $qafile ] ; then rm -f $qafile ; fi
+  echo "# First, cd to the directory with this file is found." >> $qafile
+  echo "# Then, define the following environmental variable:" >> $qafile
+  echo "export TEMPLATEDIR=           # this is the folder with templates from the HCP Pipelines" >> $qafile
+  echo "                              # (you can grab it from CBIUserData/cbishare/HCPPipelinesTemplates)" >> $qafile
+  echo "" >> $qafile
+  echo "# Look at the quality of the bias corrected output (T1w is brain only)" >> $qafile
+  echo "fslview ../${T1wImage}_acpc_dc_brain ../${T1wImage}_acpc_dc_restore_brain" >> $qafile
+  echo "" >> $qafile
+  echo "# Optional debugging (smoothed version, extrapolated version)" >> $qafile
+  echo "fslview ../${T1wImage}_acpc_dc ./bias_raw" >> $qafile
+fi
 
 # ------------------------------------------------------------------------------
 #  Atlas Registration to MNI152: FLIRT + FNIRT  
@@ -568,7 +650,8 @@ ${RUN} ${HCPPIPEDIR_PreFS}/BiasFieldCorrection_sqrtT1wXT1w.sh \
 
 log_Msg "Performing Atlas Registration to MNI152 (FLIRT and FNIRT)"
 
-${RUN} ${HCPPIPEDIR_PreFS}/AtlasRegistrationToMNI152_FLIRTandFNIRT.sh \
+if [ ! $T2wInputImages = "NONE" ] ; then
+  ${RUN} ${HCPPIPEDIR_PreFS}/AtlasRegistrationToMNI152_FLIRTandFNIRT.sh \
     --workingdir=${AtlasSpaceFolder} \
     --t1=${T1wFolder}/${T1wImage}_acpc_dc \
     --t1rest=${T1wFolder}/${T1wImage}_acpc_dc_restore \
@@ -590,6 +673,10 @@ ${RUN} ${HCPPIPEDIR_PreFS}/AtlasRegistrationToMNI152_FLIRTandFNIRT.sh \
     --ot2rest=${AtlasSpaceFolder}/${T2wImage}_restore \
     --ot2restbrain=${AtlasSpaceFolder}/${T2wImage}_restore_brain \
     --fnirtconfig=${FNIRTConfig}
+else
+  # The registration to MNI is already done in fsl_anat.
+  # Just make sure you move the files to where the Pipeline expects them:
+  $FSLDIR/bin/applywarp -i ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_biascorr -w ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_to_MNI_nonlin_field -r ${HCPPIPEDIR_Templates}/MNI152_T1_0.7mm_brain.nii.gz -o ${AtlasSpaceFolder}/${T1wImage}_restore --interp=spline
 
 log_Msg "Completed"
 
