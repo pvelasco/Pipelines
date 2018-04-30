@@ -620,11 +620,12 @@ else
       -o ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w \
       --noreorient --nocrop \
       --nocleanup \
+      --noreg --nononlinreg --noseg --nosubcortseg \
       -i ${T1wFolder}/${T1wImage}_acpc_dc
-  #--noreg --nononlinreg --noseg --nosubcortseg \
 
-  # Move the files to where the Pipeline expects them:
-  mv ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_biascorr_brain.nii.gz ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w/${T1wImage}_acpc_dc_brain.nii.gz
+  # Generate the files the Pipeline expects:
+  mv ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_biascorr.nii.gz ${T1wFolder}/${T1wImage}_acpc_dc_restore.nii.gz
+  ${FSLDIR}/bin/fslmaths ${T1wFolder}/${T1wImage}_acpc_dc_restore -mul ${T1wFolder}/${T1wImage}_acpc_brain_mask ${T1wFolder}/${T1wImage}_acpc_dc_restore_brain.nii.gz
   mv ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_fast_bias.nii.gz ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w/bias_raw.nii.gz
 
   # Create the "qa.txt" file, similar to the one created by
@@ -632,9 +633,6 @@ else
   qafile=${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w/qa.txt
   if [ -e $qafile ] ; then rm -f $qafile ; fi
   echo "# First, cd to the directory with this file is found." >> $qafile
-  echo "# Then, define the following environmental variable:" >> $qafile
-  echo "export TEMPLATEDIR=           # this is the folder with templates from the HCP Pipelines" >> $qafile
-  echo "                              # (you can grab it from CBIUserData/cbishare/HCPPipelinesTemplates)" >> $qafile
   echo "" >> $qafile
   echo "# Look at the quality of the bias corrected output (T1w is brain only)" >> $qafile
   echo "fslview ../${T1wImage}_acpc_dc_brain ../${T1wImage}_acpc_dc_restore_brain" >> $qafile
@@ -674,9 +672,24 @@ if [ ! $T2wInputImages = "NONE" ] ; then
     --ot2restbrain=${AtlasSpaceFolder}/${T2wImage}_restore_brain \
     --fnirtconfig=${FNIRTConfig}
 else
-  # The registration to MNI is already done in fsl_anat.
-  # Just make sure you move the files to where the Pipeline expects them:
-  $FSLDIR/bin/applywarp -i ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_biascorr -w ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_to_MNI_nonlin_field -r ${HCPPIPEDIR_Templates}/MNI152_T1_0.7mm_brain.nii.gz -o ${AtlasSpaceFolder}/${T1wImage}_restore --interp=spline
+  ${RUN} ${HCPPIPEDIR_PreFS}/AtlasRegistrationToMNI152_FLIRTandFNIRT.sh \
+    --workingdir=${AtlasSpaceFolder} \
+    --t1=${T1wFolder}/${T1wImage}_acpc_dc \
+    --t1rest=${T1wFolder}/${T1wImage}_acpc_dc_restore \
+    --t1restbrain=${T1wFolder}/${T1wImage}_acpc_dc_restore_brain \
+    --t2="NONE" \
+    --ref=${T1wTemplate} \
+    --refbrain=${T1wTemplateBrain} \
+    --refmask=${TemplateMask} \
+    --ref2mm=${T1wTemplate2mm} \
+    --ref2mmmask=${Template2mmMask} \
+    --owarp=${AtlasSpaceFolder}/xfms/acpc_dc2standard.nii.gz \
+    --oinvwarp=${AtlasSpaceFolder}/xfms/standard2acpc_dc.nii.gz \
+    --ot1=${AtlasSpaceFolder}/${T1wImage} \
+    --ot1rest=${AtlasSpaceFolder}/${T1wImage}_restore \
+    --ot1restbrain=${AtlasSpaceFolder}/${T1wImage}_restore_brain \
+    --fnirtconfig=${FNIRTConfig}
+fi
 
 log_Msg "Completed"
 
