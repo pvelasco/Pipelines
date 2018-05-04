@@ -69,7 +69,7 @@ PipelineScripts=${HCPPIPEDIR_PostFS}
 #Naming Conventions
 T1wImage="T1w_acpc_dc"
 T1wFolder="T1w" #Location of T1w images
-T2wFolder="T2w" #Location of T1w images
+T2wFolder="T2w" #Location of T2w images
 T2wImage="T2w_acpc_dc" 
 AtlasSpaceFolder="MNINonLinear"
 NativeFolder="Native"

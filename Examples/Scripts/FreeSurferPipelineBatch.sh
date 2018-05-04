@@ -80,6 +80,9 @@ for Subject in $Subjlist ; do
   T1wImage="${StudyFolder}/sub-${Subject}/T1w/T1w_acpc_dc_restore.nii.gz" #T1w FreeSurfer Input (Full Resolution)
   T1wImageBrain="${StudyFolder}/sub-${Subject}/T1w/T1w_acpc_dc_restore_brain.nii.gz" #T1w FreeSurfer Input (Full Resolution)
   T2wImage="${StudyFolder}/sub-${Subject}/T1w/T2w_acpc_dc_restore.nii.gz" #T2w FreeSurfer Input (Full Resolution)
+  if [ ! -f $T2wImage ] ; then
+    T2wImage="NONE"
+  fi
 
   if [ -n "${command_line_specified_run_local}" ] ; then
       echo "About to run ${HCPPIPEDIR}/FreeSurfer/FreeSurferPipeline.sh"
