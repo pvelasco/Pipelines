@@ -31,4 +31,4 @@ if [ ! $T2wImage = "NONE" ] ; then
 fi
 
 echo " "
-echo " START: T2w2T1Reg"
+echo " END: T2w2T1Reg"

@@ -681,6 +681,8 @@ else
     --t1rest=${T1wFolder}/${T1wImage}_acpc_dc_restore \
     --t1restbrain=${T1wFolder}/${T1wImage}_acpc_dc_restore_brain \
     --t2="NONE" \
+    --t2rest="NONE" \
+    --t2restbrain="NONE" \
     --ref=${T1wTemplate} \
     --refbrain=${T1wTemplateBrain} \
     --refmask=${TemplateMask} \
