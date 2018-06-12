@@ -627,10 +627,11 @@ else
       ${BiasFieldSmoothingSigma}
 
   # Generate the files the Pipeline expects:
-  mv ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_biascorr.nii.gz ${T1wFolder}/${T1wImage}_acpc_dc_restore.nii.gz
-  ${FSLDIR}/bin/fslmaths ${T1wFolder}/${T1wImage}_acpc_dc_restore -mul ${T1wFolder}/${T1wImage}_acpc_brain_mask ${T1wFolder}/${T1wImage}_acpc_dc_restore_brain.nii.gz
-  mv ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_fast_bias.nii.gz ${T1wFolder}/BiasField_acpc_dc.nii.gz
-
+  mv ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_fast_bias.nii.gz ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/bias_raw.nii.gz
+  ${FSLDIR}/bin/fslmaths ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/bias_raw.nii.gz $BiasFieldSmoothingSigma ${T1wFolder}/BiasField_acpc_dc.nii.gz
+  ${FSLDIR}/bin/fslmaths ${T1wFolder}/${T1wImage}_acpc_dc -div ${T1wFolder}/BiasField_acpc_dc.nii.gz -mas ${T1wFolder}/${T1wImage}_acpc_dc_brain ${T1wFolder}/${T1wImage}_acpc_dc_restore_brain -odt float
+  ${FSLDIR}/bin/fslmaths ${T1wFolder}/${T1wImage}_acpc_dc -div ${T1wFolder}/BiasField_acpc_dc.nii.gz ${T1wFolder}/${T1wImage}_acpc_dc_restore -odt float
+  
   # Create the "qa.txt" file, similar to the one created by
   #   BiasFieldCorrection_sqrtT1wXT1w:
   qafile=${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w/qa.txt
