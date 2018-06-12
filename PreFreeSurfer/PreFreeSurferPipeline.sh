@@ -594,14 +594,13 @@ fi
 # ------------------------------------------------------------------------------
 
 log_Msg "Performing Bias Field Correction"
-if [ ! -z ${BiasFieldSmoothingSigma} ] ; then
-    BiasFieldSmoothingSigma="--bfsigma=${BiasFieldSmoothingSigma}"
-fi 
-
 log_Msg "mkdir -p ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w" 
 mkdir -p ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w 
 
 if [ ! $T2wInputImages = "NONE" ] ; then
+  if [ ! -z ${BiasFieldSmoothingSigma} ] ; then
+    BiasFieldSmoothingSigma="--bfsigma=${BiasFieldSmoothingSigma}"
+  fi
   ${RUN} ${HCPPIPEDIR_PreFS}/BiasFieldCorrection_sqrtT1wXT1w.sh \
     --workingdir=${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w \
     --T1im=${T1wFolder}/${T1wImage}_acpc_dc \
@@ -616,17 +615,21 @@ if [ ! $T2wInputImages = "NONE" ] ; then
 else
   # Do the bias correction using fsl_anat.
   # Just make sure you output the images that will be needed in future steps
+  if [ ! -z ${BiasFieldSmoothingSigma} ] ; then
+    BiasFieldSmoothingSigma="-s ${BiasFieldSmoothingSigma}"
+  fi
   ${FSLDIR}/bin/fsl_anat \
       -o ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w \
       --noreorient --nocrop \
       --nocleanup \
       --noreg --nononlinreg --noseg --nosubcortseg \
       -i ${T1wFolder}/${T1wImage}_acpc_dc
+      ${BiasFieldSmoothingSigma}
 
   # Generate the files the Pipeline expects:
   mv ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_biascorr.nii.gz ${T1wFolder}/${T1wImage}_acpc_dc_restore.nii.gz
   ${FSLDIR}/bin/fslmaths ${T1wFolder}/${T1wImage}_acpc_dc_restore -mul ${T1wFolder}/${T1wImage}_acpc_brain_mask ${T1wFolder}/${T1wImage}_acpc_dc_restore_brain.nii.gz
-  mv ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_fast_bias.nii.gz ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w/bias_raw.nii.gz
+  mv ${T1wFolder}/BiasFieldCorrection_sqrtT1wXT1w.anat/T1_fast_bias.nii.gz ${T1wFolder}/BiasField_acpc_dc.nii.gz
 
   # Create the "qa.txt" file, similar to the one created by
   #   BiasFieldCorrection_sqrtT1wXT1w:
