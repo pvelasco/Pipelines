@@ -155,7 +155,7 @@ get_T2s() {
   fi
   #echo "T2wImages: ${T2wImages[@]}"
 
-  if [ ! $T2wImages = "NONE" ] ; then
+  if [ ! ${T2wImages%%.nii*} = "NONE" ] ; then
     # Get the unique ones (e.g.: normalized and unnormalized):
     T2wInputImages=`get_Input_TXw_Images ${T2wImages[@]}`
     echo "Found ${#T2wInputImages[@]} T2w Images for subject ${Subject}"
