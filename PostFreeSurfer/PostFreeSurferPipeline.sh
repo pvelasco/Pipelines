@@ -81,10 +81,6 @@ AtlasSpaceT1wImage="T1w_restore"
 AtlasSpaceT2wImage="T2w_restore"
 T1wRestoreImage="T1w_acpc_dc_restore"
 T2wRestoreImage="T2w_acpc_dc_restore"
-if [ ! -f "$T1wFolder"/"$T2wRestoreImage".nii.gz ] ; then
-  T2wRestoreImage="NONE"
-  AtlasSpaceT2wImage="NONE"
-fi
 OrginalT1wImage="T1w"
 OrginalT2wImage="T2w"
 T1wImageBrainMask="brainmask_fs"
@@ -119,6 +115,13 @@ AtlasSpaceFolder="$StudyFolder"/"sub-$Subject"/"$AtlasSpaceFolder"
 FreeSurferFolder="$T1wFolder"/"$FreeSurferFolder"
 AtlasTransform="$AtlasSpaceFolder"/xfms/"$AtlasTransform"
 InverseAtlasTransform="$AtlasSpaceFolder"/xfms/"$InverseAtlasTransform"
+
+# Check to see if a T2w image is available:
+if [ ! -f "$T1wFolder"/"$T2wRestoreImage".nii.gz ] ; then
+  echo "T2w image not found"
+  T2wRestoreImage="NONE"
+  AtlasSpaceT2wImage="NONE"
+fi
 
 #Conversion of FreeSurfer Volumes and Surfaces to NIFTI and GIFTI and Create Caret Files and Registration
 log_Msg "Conversion of FreeSurfer Volumes and Surfaces to NIFTI and GIFTI and Create Caret Files and Registration"
