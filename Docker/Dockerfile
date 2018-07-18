@@ -126,7 +126,7 @@ RUN yum -y update \
 # Install HCP Pipelines, branch 'noT2w', from github, and get folder where it is installed.
 ENV HCPPIPEDIR=${INSTALL_FOLDER}/Pipelines
 RUN mkdir ${HCPPIPEDIR} \
-    && curl -sSL https://github.com/pvelasco/Pipelines/archive/noT2w.tar.gz \
+    && curl -sSL https://github.com/pvelasco/Pipelines/archive/v3.4.tar.gz \
         | tar -vxz -C ${HCPPIPEDIR} --strip-components=1
 
 
