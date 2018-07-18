@@ -112,14 +112,20 @@ WD=`defaultopt $WD .`
 T1wImage=`${FSLDIR}/bin/remove_ext $T1wImage`
 T1wImageBrain=`${FSLDIR}/bin/remove_ext $T1wImageBrain`
 T2wImage=`${FSLDIR}/bin/remove_ext $T2wImage`
-T2wImageBrain=`${FSLDIR}/bin/remove_ext $T2wImageBrain`
 
 T1wImageBrainBasename=`basename "$T1wImageBrain"`
 T1wImageBasename=`basename "$T1wImage"`
-T2wImageBrainBasename=`basename "$T2wImageBrain"`
 T2wImageBasename=`basename "$T2wImage"`
+if [ -f "${T2wImageBrain}" ] ; then
+  T2wImageBrain=`${FSLDIR}/bin/remove_ext $T2wImageBrain`
+  T2wImageBrainBasename=`basename "$T2wImageBrain"`
+fi
 
-Modalities="T1w T2w"
+if [ ! $T2wImage = "NONE" ] ; then
+  Modalities="T1w T2w"
+else
+  Modalities="T1w"
+fi
 
 echo " "
 echo " START: T2wToT1wDistortionCorrectionAndReg"
@@ -153,6 +159,7 @@ if [ $DistortionCorrection = "FIELDMAP" ] ; then
     --ofmapmagbrain=${WD}/Magnitude_brain \
     --ofmap=${WD}/FieldMap \
     --gdcoeffs=${GradientDistortionCoeffs}
+
 ###### TOPUP VERSION (SE FIELDMAPS) ######
 elif [ $DistortionCorrection = "TOPUP" ] ; then
   if [[ ${SEUnwarpDir} = "x" || ${SEUnwarpDir} = "y" ]] ; then
@@ -161,6 +168,7 @@ elif [ $DistortionCorrection = "TOPUP" ] ; then
     ScoutInputName="${SpinEchoPhaseEncodeNegative}"
   fi
   scout_RO_Time=${SE_RO_Time}      # We use one of the SE as scout for TopUp
+  
   # Use topup to distortion correct the scout scans
   #    using a blip-reversed SE pair "fieldmap" sequence
   ${HCPPIPEDIR_Global}/TopupPreprocessingAll.sh \
@@ -233,25 +241,27 @@ done
 
 
 ### Now do T2w to T1w registration
-mkdir -p ${WD}/T2w2T1w
+if [ ! $T2wImage = "NONE" ] ; then
+  mkdir -p ${WD}/T2w2T1w
     
-# Main registration: between corrected T2w and corrected T1w
-${FSLDIR}/bin/epi_reg --epi=${WD}/${T2wImageBrainBasename} --t1=${WD}/${T1wImageBasename} --t1brain=${WD}/${T1wImageBrainBasename} --out=${WD}/T2w2T1w/T2w_reg
+  # Main registration: between corrected T2w and corrected T1w
+  ${FSLDIR}/bin/epi_reg --epi=${WD}/${T2wImageBrainBasename} --t1=${WD}/${T1wImageBasename} --t1brain=${WD}/${T1wImageBrainBasename} --out=${WD}/T2w2T1w/T2w_reg
     
-# Make a warpfield directly from original (non-corrected) T2w to corrected T1w  (and apply it)
-${FSLDIR}/bin/convertwarp --relout --rel --ref=${T1wImage} --warp1=${WD}/FieldMap2${T2wImageBasename}_Warp.nii.gz --postmat=${WD}/T2w2T1w/T2w_reg.mat -o ${WD}/T2w2T1w/T2w_dc_reg
+  # Make a warpfield directly from original (non-corrected) T2w to corrected T1w  (and apply it)
+  ${FSLDIR}/bin/convertwarp --relout --rel --ref=${T1wImage} --warp1=${WD}/FieldMap2${T2wImageBasename}_Warp.nii.gz --postmat=${WD}/T2w2T1w/T2w_reg.mat -o ${WD}/T2w2T1w/T2w_dc_reg
     
-${FSLDIR}/bin/applywarp --rel --interp=spline --in=${T2wImage} --ref=${T1wImage} --warp=${WD}/T2w2T1w/T2w_dc_reg --out=${WD}/T2w2T1w/T2w_reg
+  ${FSLDIR}/bin/applywarp --rel --interp=spline --in=${T2wImage} --ref=${T1wImage} --warp=${WD}/T2w2T1w/T2w_dc_reg --out=${WD}/T2w2T1w/T2w_reg
    
-# Add 1 to avoid exact zeros within the image (a problem for myelin mapping?)
-${FSLDIR}/bin/fslmaths ${WD}/T2w2T1w/T2w_reg.nii.gz -add 1 ${WD}/T2w2T1w/T2w_reg.nii.gz -odt float
+  # Add 1 to avoid exact zeros within the image (a problem for myelin mapping?)
+  ${FSLDIR}/bin/fslmaths ${WD}/T2w2T1w/T2w_reg.nii.gz -add 1 ${WD}/T2w2T1w/T2w_reg.nii.gz -odt float
 
-# QA image
-${FSLDIR}/bin/fslmaths ${WD}/T2w2T1w/T2w_reg -mul ${T1wImage} -sqrt ${WD}/T2w2T1w/sqrtT1wbyT2w -odt float
+  # QA image
+  ${FSLDIR}/bin/fslmaths ${WD}/T2w2T1w/T2w_reg -mul ${T1wImage} -sqrt ${WD}/T2w2T1w/sqrtT1wbyT2w -odt float
     
-# Copy files to specified destinations
-${FSLDIR}/bin/imcp ${WD}/T2w2T1w/T2w_dc_reg ${OutputT2wTransform}
-${FSLDIR}/bin/imcp ${WD}/T2w2T1w/T2w_reg ${OutputT2wImage}
+  # Copy files to specified destinations
+  ${FSLDIR}/bin/imcp ${WD}/T2w2T1w/T2w_dc_reg ${OutputT2wTransform}
+  ${FSLDIR}/bin/imcp ${WD}/T2w2T1w/T2w_reg ${OutputT2wImage}
+fi
 
 echo " "
 echo " END: T2wToT1wDistortionCorrectionAndReg"
@@ -262,12 +272,13 @@ echo " END: `date`" >> $WD/log.txt
 if [ -e $WD/qa.txt ] ; then rm -f $WD/qa.txt ; fi
 echo "# First, cd to the directory with this file is found." >> $WD/qa.txt
 echo "" >> $WD/qa.txt
-echo "# View registration result of corrected T2w to corrected T1w image: showing both images + sqrt(T1w*T2w)" >> $WD/qa.txt
-echo "fslview ./${T1wImageBrainBasename} ./T2w2T1w/T2w_reg /T2w2T1w/sqrtT1wbyT2w" >> $WD/qa.txt
+if [ ! $T2wImage = "NONE" ] ; then
+  echo "# View registration result of corrected T2w to corrected T1w image: showing both images + sqrt(T1w*T2w)" >> $WD/qa.txt
+  echo "fslview ./${T1wImageBrainBasename} ./T2w2T1w/T2w_reg /T2w2T1w/sqrtT1wbyT2w" >> $WD/qa.txt
+fi
 echo "# Compare pre- and post-distortion correction for T1w" >> $WD/qa.txt
 echo "fslview `realpath --relative-to=${WD} ${T1wImage}` ./${T1wImageBrainBasename}" >> $WD/qa.txt
 echo "# Compare pre- and post-distortion correction for T2w" >> $WD/qa.txt
 echo "fslview ${T2wImage} ${WD}/${T2wImageBasename}" >> $WD/qa.txt
 
 ##############################################################################################
-

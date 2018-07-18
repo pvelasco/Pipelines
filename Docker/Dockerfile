@@ -123,10 +123,10 @@ RUN yum -y update \
     && yum install -y freetype libpng libSM libXrender fontconfig libXext \
     && yum clean all
 
-# Install HCP Pipelines v.3.4.0 from github, and get folder where it is installed.
+# Install HCP Pipelines, branch 'v3.4', from github, and get folder where it is installed.
 ENV HCPPIPEDIR=${INSTALL_FOLDER}/Pipelines
 RUN mkdir ${HCPPIPEDIR} \
-    && curl -sSL https://github.com/pvelasco/Pipelines/archive/GenericfMRI_BIDS.tar.gz \
+    && curl -sSL https://github.com/pvelasco/Pipelines/archive/v3.4.tar.gz \
         | tar -vxz -C ${HCPPIPEDIR} --strip-components=1
 
 
