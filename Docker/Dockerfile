@@ -10,11 +10,8 @@
 # -HCP gradunwarp       v.1.0.2                           #
 ###########################################################
 
-###   Start by creating a "builder"   ###
-# We'll compile all needed packages in the builder, and then
-# we'll just get only what we need for the actual APP
 
-# Start with CentOS 6.9 image
+###   Start with CentOS 6.9 image   ###
 FROM centos:centos6.9
 
 # Add EPEL as a repo for yum:
@@ -57,7 +54,6 @@ ENV PATH=${FSLDIR}/bin:$PATH \
 # Install dependencies for FS
 RUN yum -y update \
     && yum install -y tcsh libgomp perl netcdf libGLU libXmu \
-    && yum clean all
 
 # Download FS_v5.3.0 for HCP from the official repo and untar to ${INSTALL_FOLDER}:
 # Note: I'm getting rid of 'lib/cuda' and 'bin/*_cuda' because it requires specific cuda
@@ -112,8 +108,22 @@ RUN curl -sS https://ftp.humanconnectome.org/workbench/workbench-rh_linux64-v1.0
 
 ###   Install HCP Grad-Unwarp   ###
 
-# Install HCP's version of 'gradunwarp' (v.1.0.2) from github:
-RUN curl -sSL https://github.com/Washington-University/gradunwarp/archive/v1.0.3.tar.gz | tar xz -C ${INSTALL_FOLDER}
+# Install Python 2.7.
+# In Centos 6.9, you need to install CentOS Software Collections Repository
+RUN yum -y update \
+    && yum install -y centos-release-scl \
+    && yum install -y python27 python-pip      # you need to run this as a separte command from the above
+RUN scl enable python27 'pip install --user numpy scipy nibabel'
+
+# Install HCP's version of 'gradunwarp' (v.1.0.3) from github:
+#ENV GRADUNWARP_VERSION=v1.0.3
+ENV GRADUNWARP_VERSION=34ea46c18f204b739c7c312d4b946efefdc8a8a1
+RUN yum -y update \
+    && yum install -y gcc
+RUN curl -sSL https://github.com/Washington-University/gradunwarp/archive/${GRADUNWARP_VERSION}.tar.gz \
+        | tar xz -C ${INSTALL_FOLDER} \
+    && cd ${INSTALL_FOLDER}/gradunwarp-${GRADUNWARP_VERSION#v} \
+    && scl enable python27 'python setup.py install'
 
 
 ###   Install HCP Pipelines   ###
@@ -129,6 +139,11 @@ RUN mkdir ${HCPPIPEDIR} \
     && curl -sSL https://github.com/pvelasco/Pipelines/archive/v3.4.tar.gz \
         | tar -vxz -C ${HCPPIPEDIR} --strip-components=1
 
+# Copy Gradient Coefficients file:
+# (Note: coeff.grad is not distributed here.)
+# COPY needs at least one file to works, so we add Dockerfile
+#   and coeff.gra[d], which might exist in this folder:
+COPY Dockerfile coeff.gra[d] ${HCPPIPEDIR}/global/config/
 
 ###   Modify some batches to run them in parallel   ###
 

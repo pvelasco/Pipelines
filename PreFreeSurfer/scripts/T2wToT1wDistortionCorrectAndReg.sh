@@ -274,11 +274,11 @@ echo "# First, cd to the directory with this file is found." >> $WD/qa.txt
 echo "" >> $WD/qa.txt
 if [ ! $T2wImage = "NONE" ] ; then
   echo "# View registration result of corrected T2w to corrected T1w image: showing both images + sqrt(T1w*T2w)" >> $WD/qa.txt
-  echo "fslview ./${T1wImageBrainBasename} ./T2w2T1w/T2w_reg /T2w2T1w/sqrtT1wbyT2w" >> $WD/qa.txt
+  echo "fslview ./${T1wImageBrainBasename} ./T2w2T1w/T2w_reg ./T2w2T1w/sqrtT1wbyT2w" >> $WD/qa.txt
 fi
 echo "# Compare pre- and post-distortion correction for T1w" >> $WD/qa.txt
-echo "fslview `realpath --relative-to=${WD} ${T1wImage}` ./${T1wImageBrainBasename}" >> $WD/qa.txt
+echo "fslview `python -c \"import os.path; print os.path.relpath('$T1wImage','$WD')\"` ./${T1wImageBrainBasename}" >> $WD/qa.txt
 echo "# Compare pre- and post-distortion correction for T2w" >> $WD/qa.txt
-echo "fslview ${T2wImage} ${WD}/${T2wImageBasename}" >> $WD/qa.txt
+echo "fslview ${T2wImage} ${T2wImageBasename}" >> $WD/qa.txt
 
 ##############################################################################################

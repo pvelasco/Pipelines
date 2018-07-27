@@ -428,8 +428,11 @@ for Subject in $Subjlist ; do
   #Other Config Settings
   BrainSize="150" #BrainSize in mm, 150 for humans
   FNIRTConfig="${HCPPIPEDIR_Config}/T1_2_MNI152_2mm.cnf" #FNIRT 2mm T1w Config
-  # GradientDistortionCoeffs="${HCPPIPEDIR_Config}/coeff_SC72C_Skyra.grad" #Location of Coeffs file or "NONE" to skip
-  GradientDistortionCoeffs="NONE" # Set to NONE to skip gradient distortion correction
+  GradientDistortionCoeffs="${HCPPIPEDIR_Config}/coeff.grad"   # Default location of Coeffs file
+  # if it doesn't exist, skip it:
+  if [ ! -f ${GradientDistortionCoeffs} ]; then
+    GradientDistortionCoeffs="NONE" # Set to NONE to skip gradient distortion correction
+  fi
 
   if [ -n "${command_line_specified_run_local}" ] ; then
       echo "About to run ${HCPPIPEDIR}/PreFreeSurfer/PreFreeSurferPipeline.sh"
