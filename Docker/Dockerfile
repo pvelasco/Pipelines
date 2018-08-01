@@ -10,11 +10,8 @@
 # -HCP gradunwarp       v.1.0.2                           #
 ###########################################################
 
-###   Start by creating a "builder"   ###
-# We'll compile all needed packages in the builder, and then
-# we'll just get only what we need for the actual APP
 
-# Start with CentOS 6.9 image
+###   Start with CentOS 6.9 image   ###
 FROM centos:centos6.9
 
 # Add EPEL as a repo for yum:
@@ -40,7 +37,8 @@ RUN yum -y update \
     && rm -fr ${INSTALL_FOLDER}/fsl/data/possum \
     && rm -fr ${INSTALL_FOLDER}/fsl/src \
     && rm -fr ${INSTALL_FOLDER}/fsl/extras/src \
-    && rm -fr ${INSTALL_FOLDER}/fsl/bin/fslview*
+    && rm -fr ${INSTALL_FOLDER}/fsl/bin/fslview* \
+    && yum clean all
 
 
 # Configure environment
@@ -112,8 +110,24 @@ RUN curl -sS https://ftp.humanconnectome.org/workbench/workbench-rh_linux64-v1.0
 
 ###   Install HCP Grad-Unwarp   ###
 
-# Install HCP's version of 'gradunwarp' (v.1.0.2) from github:
-RUN curl -sSL https://github.com/Washington-University/gradunwarp/archive/v1.0.3.tar.gz | tar xz -C ${INSTALL_FOLDER}
+# Install Python 2.7.
+# In Centos 6.9, you need to install CentOS Software Collections Repository
+RUN yum -y update \
+    && yum install -y centos-release-scl \
+    && yum install -y python27 python-pip \     # you need to run this as a separte command from the above \
+    && yum clean all
+RUN scl enable python27 'pip install numpy scipy nibabel'
+
+# Install HCP's version of 'gradunwarp' (v.1.0.3) from github:
+#ENV GRADUNWARP_VERSION=v1.0.3
+ENV GRADUNWARP_VERSION=34ea46c18f204b739c7c312d4b946efefdc8a8a1
+RUN yum -y update \
+    && yum install -y gcc \
+    && yum clean all
+RUN curl -sSL https://github.com/Washington-University/gradunwarp/archive/${GRADUNWARP_VERSION}.tar.gz \
+        | tar xz -C ${INSTALL_FOLDER} \
+    && cd ${INSTALL_FOLDER}/gradunwarp-${GRADUNWARP_VERSION#v} \
+    && scl enable python27 'python setup.py install'
 
 
 ###   Install HCP Pipelines   ###
@@ -123,12 +137,22 @@ RUN yum -y update \
     && yum install -y freetype libpng libSM libXrender fontconfig libXext \
     && yum clean all
 
-# Install HCP Pipelines, branch 'v3.4', from github, and get folder where it is installed.
+# Install HCP Pipelines, branch 'gdc', from github, and get folder where it is installed.
 ENV HCPPIPEDIR=${INSTALL_FOLDER}/Pipelines
 RUN mkdir ${HCPPIPEDIR} \
-    && curl -sSL https://github.com/pvelasco/Pipelines/archive/v3.4.tar.gz \
+    && curl -sSL https://github.com/pvelasco/Pipelines/archive/gdc.tar.gz \
         | tar -vxz -C ${HCPPIPEDIR} --strip-components=1
 
+# Copy Gradient Coefficients file:
+# (Note: coeff.grad is not distributed here.)
+# COPY needs at least one file to works, so we add Dockerfile
+#   and coeff.gra[d], which might exist in this folder:
+COPY Dockerfile coeff.gra[d] ${HCPPIPEDIR}/global/config/
+# Check if the coeff file exists. If so, make it readable to all users
+# (NB: for some reason, Docker doesn't like a simple [ -f ... ] && chmod ...
+RUN /bin/ls ${HCPPIPEDIR}/global/config/coeff.grad > /dev/null 2>&1 \
+    && [ $? -eq 0 ] \
+    && chmod a+r ${HCPPIPEDIR}/global/config/coeff.grad; exit 0
 
 ###   Modify some batches to run them in parallel   ###
 

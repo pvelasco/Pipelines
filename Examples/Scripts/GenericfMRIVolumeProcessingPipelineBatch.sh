@@ -128,8 +128,11 @@ echo "user chose Topup B0 correction"
 MagnitudeInputName="NONE" #Expects 4D Magnitude volume with two 3D timepoints, set to NONE if using TOPUP
 PhaseInputName="NONE" #Expects a 3D Phase volume, set to NONE if using TOPUP
 DeltaTE="NONE" #2.46ms for 3T, 1.02ms for 7T, set to NONE if using TOPUP
-# GradientDistortionCoeffs="${HCPPIPEDIR_Config}/coeff_SC72C_Skyra.grad" #Gradient distortion correction coefficents, set to NONE to turn off
-GradientDistortionCoeffs="NONE" # SEt to NONE to skip gradient distortion correction
+GradientDistortionCoeffs="${HCPPIPEDIR_Config}/coeff.grad"   # Default location of Coeffs file
+# if it doesn't exist, skip it:
+if [ ! -f ${GradientDistortionCoeffs} ]; then
+  GradientDistortionCoeffs="NONE" # Set to NONE to skip gradient distortion correction
+fi
 TopUpConfig="${HCPPIPEDIR_Config}/b02b0.cnf" #Topup config if using TOPUP, set to NONE if using regular FIELDMAP
 
 for Subject in ${Subjlist[*]} ; do

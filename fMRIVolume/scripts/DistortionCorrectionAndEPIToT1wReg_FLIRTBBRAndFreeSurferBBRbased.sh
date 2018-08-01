@@ -339,8 +339,6 @@ if [ -e $WD/qa.txt ] ; then rm -f $WD/qa.txt ; fi
 echo "# First, cd to the directory with this file is found." >> $WD/qa.txt
 echo "" >> $WD/qa.txt
 echo "# Check registration of EPI to T1w (with all corrections applied)" >> $WD/qa.txt
-echo "fslview ../../../T1w/`basename ${T1wRestoreImage}` ../`basename ${RegOutput}` ../`basename ${QAImage}`" >> $WD/qa.txt
-echo "# If the previous didn't work, try:" >> $WD/qa.txt
 echo "fslview `python -c \"import os.path; print os.path.relpath('$T1wRestoreImage','$WD')\"` ../`basename ${RegOutput}` ../`basename ${QAImage}`" >> $WD/qa.txt
 echo "# Check undistortion of the scout image" >> $WD/qa.txt
 if [ $GradientDistortionCoeffs = "NONE" ] ; then
@@ -348,7 +346,7 @@ if [ $GradientDistortionCoeffs = "NONE" ] ; then
     #        space, while the _undistorted image is in T1w space)
     echo "fslview ../`basename ${ScoutInputFile}` ${ScoutInputFile}_undistorted" >> $WD/qa.txt
 else
-    echo "fslview ../GradientDistortionUnwarp/Scout ${WD}/${ScoutInputFile}_undistorted" >> $WD/qa.txt
+    echo "fslview `python -c \"import os.path; print os.path.relpath( os.path.dirname('$ScoutInputName') + '/GradientDistortionUnwarp/Scout','$WD')\"` ./${ScoutInputFile}_undistorted" >> $WD/qa.txt
 fi
 
 ##############################################################################################

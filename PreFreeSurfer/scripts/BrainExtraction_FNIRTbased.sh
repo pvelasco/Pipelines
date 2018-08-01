@@ -111,7 +111,7 @@ echo "# Check that the following brain mask does not exclude any brain tissue (a
 echo "fslview ../`basename $Input` ../`basename $OutputBrainMask` -l Red -t 0.5" >> $WD/qa.txt
 echo "" >> $WD/qa.txt
 echo "# Optional debugging: linear and non-linear registration result" >> $WD/qa.txt
-echo "fslview \$TEMPLATEDIR/`basename $Reference2mm` ./${BaseName}_to_MNI_roughlin.nii.gz" >> $WD/qa.txt
-echo "fslview \$TEMPLATEDIR/`basename $Reference` ./${BaseName}_to_MNI_nonlin.nii.gz" >> $WD/qa.txt
+echo "fslview \$TEMPLATEDIR/`basename $Reference2mm` ./${BaseName}_to_MNI_roughlin" >> $WD/qa.txt
+echo "fslview \$TEMPLATEDIR/`basename $Reference` ./${BaseName}_to_MNI_nonlin" >> $WD/qa.txt
 
 ##############################################################################################
