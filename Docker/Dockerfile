@@ -30,14 +30,14 @@ RUN yum -y update \
     && yum install -y tar unzip bc numpy\
     && yum clean all \
     && curl -sSL https://fsl.fmrib.ox.ac.uk/fsldownloads/oldversions/fsl-5.0.6-centos6_64.tar.gz | tar xz -C ${INSTALL_FOLDER} \
-    && rm -fr ${INSTALL_FOLDER}/fsl/doc \
-    # Note: ${INSTALL_FOLDER}/fsl/data/standard is needed for functional processing \
-    && rm -fr ${INSTALL_FOLDER}/fsl/data/first \
-    && rm -fr ${INSTALL_FOLDER}/fsl/data/atlases \
-    && rm -fr ${INSTALL_FOLDER}/fsl/data/possum \
-    && rm -fr ${INSTALL_FOLDER}/fsl/src \
-    && rm -fr ${INSTALL_FOLDER}/fsl/extras/src \
-    && rm -fr ${INSTALL_FOLDER}/fsl/bin/fslview* \
+    --exclude='fsl/doc' \
+    --exclude='fsl/data/first' \    
+    --exclude='fsl/data/atlases' \
+    --exclude='fsl/data/possum' \    
+    --exclude='fsl/src' \    
+    --exclude='fsl/extras/src' \    
+    --exclude='fsl/bin/fslview*' \
+#    # Note: ${INSTALL_FOLDER}/fsl/data/standard is needed for functional processing \
     && yum clean all
 
 
@@ -62,18 +62,17 @@ RUN yum -y update \
 #       libraries, which I don't want to install for now.
 ENV FREESURFER_HOME=${INSTALL_FOLDER}/freesurfer
 RUN curl -sSL ftp://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/5.3.0-HCP/freesurfer-Linux-centos6_x86_64-stable-pub-v5.3.0-HCP.tar.gz | tar xz -C ${INSTALL_FOLDER} \
-    # remove some big folders that we don't need: \
-    && rm -fr ${FREESURFER_HOME}/trctrain/* \
-    && rm -fr ${FREESURFER_HOME}/lib/cuda \
-    && rm -fr ${FREESURFER_HOME}/bin/*_cuda \
-    && rm -fr ${FREESURFER_HOME}/subjects/bert \
-    && rm -fr ${FREESURFER_HOME}/subjects/cvs_avg35* \
-    # remove fsaverage3, fsaverage4,..., but don't remove "fsaverage"!!! \
-    && rm -fr ${FREESURFER_HOME}/subjects/fsaverage? \
-    && rm -fr ${FREESURFER_HOME}/subjects/fsaverage_sym \
-    && rm -fr ${FREESURFER_HOME}/subjects/V1_average \
-    && rm -fr ${FREESURFER_HOME}/subjects/sample-00?.mgz \
-    && rm -fr ${FREESURFER_HOME}/average/mult-comp-cor
+    --exclude='freesurfer/trctrain' \
+    --exclude='freesurfer/subjects/fsaverage_sym' \
+    --exclude='freesurfer/subjects/fsaverage?' \
+    --exclude='freesurfer/subjects/cvs_avg35*' \
+    --exclude='freesurfer/subjects/bert' \
+    --exclude='freesurfer/subjects/V1_average' \
+    --exclude='freesurfer/subjects/sample-00?.mgz' \
+    --exclude='freesurfer/average/mult-comp-cor' \
+    --exclude='freesurfer/lib/cuda' \
+    --exclude='freesurfer/bin/*_cuda' \
+    --exclude='freesurfer/lib/qt'
 
 # Configure license 
 COPY FS_license.txt ${FREESURFER_HOME}/license.txt
