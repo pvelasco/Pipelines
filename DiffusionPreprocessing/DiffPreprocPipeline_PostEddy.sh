@@ -268,7 +268,7 @@ validate_environment_vars() {
 #
 main() {
     # Hard-Coded variables for the pipeline
-    CombineDataFlag=1  # If JAC resampling has been used in eddy, decide what to do with the output file
+    CombineDataFlag=2  # If JAC resampling has been used in eddy, decide what to do with the output file
                        # 2 for including in the output all volumes uncombined (i.e. output file of eddy)
                        # 1 for including in the output and combine only volumes where both LR/RL 
                        #   (or AP/PA) pairs have been acquired
