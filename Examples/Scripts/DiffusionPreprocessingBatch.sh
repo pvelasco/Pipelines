@@ -122,11 +122,21 @@ for Subject in ${Subjlist[*]} ; do
   PosData="";  PosCount=0;
   NegData="";  NEgCount=0;
   
-  # TO-DO: handle the multi-session subjects
-  # Get all functional runs, getting the b-value=0 first (this is important, because otherwise
+  # Check if the data for this subject is organized in sessions:
+  sesList=( $(ls ${BIDSStudyFolder}/sub-${Subject}/ses-* 2> /dev/null) )
+  # if session folders are found, add a "session string" to the directory structure
+  #   and file names:
+  if [ $? -eq 0 ]; then
+      sesString="_ses-*"
+  else
+      # the "session string" will be empty:
+      sesString=""
+  fi
+
+  # Get all diffusion-weighted runs, getting the b-value=0 first (this is important, because otherwise
   #    the script doesn't send both b-value=0 for topup processing)
-  DWISeries="$(ls ${BIDSStudyFolder}/sub-${Subject}/dwi/sub-${Subject}_acq-b0*_dwi.nii*) \
-  	     $(ls ${BIDSStudyFolder}/sub-${Subject}/dwi/sub-${Subject}_acq-*vols*_dwi.nii*)"
+  DWISeries="$(ls ${BIDSStudyFolder}/sub-${Subject}/${sesString#_}/dwi/sub-${Subject}${sesString}_acq-b0*_dwi.nii*) \
+  	     $(ls ${BIDSStudyFolder}/sub-${Subject}/${sesString#_}/dwi/sub-${Subject}${sesString}_acq-*vols*_dwi.nii*)"
   for dwiSeries in ${DWISeries}; do
       echo ""
       echo "       ${dwiSeries}"

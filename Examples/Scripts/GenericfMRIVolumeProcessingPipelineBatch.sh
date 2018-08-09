@@ -140,8 +140,7 @@ for Subject in ${Subjlist[*]} ; do
   echo ""
   echo "########################      $Subject      ########################"
 
-  # TO-DO: handle the multi-session subjects:
-  # check if the data for this subject is organized in sessions:
+  # Check if the data for this subject is organized in sessions:
   sesList=( $(ls ${BIDSStudyFolder}/sub-${Subject}/ses-* 2> /dev/null) )
   # if session folders are found, add a "session string" to the directory structure
   #   and file names:
@@ -200,7 +199,7 @@ for Subject in ${Subjlist[*]} ; do
 	# To do that, get the portion of the "fMRITimeSeries" up to "/func/":
 	SpinEchoPhaseEncodeNegative=`ls ${fMRITimeSeries%/func/*}/fmap/sub-${Subject}${sesString}_acq-fMRI_*dir-AP*.nii*`
 	SpinEchoPhaseEncodePositive=`ls ${fMRITimeSeries%/func/*}/fmap/sub-${Subject}${sesString}_acq-fMRI_*dir-PA*.nii*`
-	
+
 	# TO-DO: if there is more than one, pick which one (maybe the one closest in time?)
 	# For now, just keep the first one:
 	SpinEchoPhaseEncodeNegative=`ls ${SpinEchoPhaseEncodeNegative%%.nii*}.nii*`
