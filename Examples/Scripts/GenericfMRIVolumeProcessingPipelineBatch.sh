@@ -140,12 +140,24 @@ for Subject in ${Subjlist[*]} ; do
   echo ""
   echo "########################      $Subject      ########################"
 
+  # TO-DO: handle the multi-session subjects:
+  # check if the data for this subject is organized in sessions:
+  sesList=( $(ls ${BIDSStudyFolder}/sub-${Subject}/ses-* 2> /dev/null) )
+  # if session folders are found, add a "session string" to the directory structure
+  #   and file names:
+  if [ $? -eq 0 ]; then
+      sesString="_ses-*"
+  else
+      # the "session string" will be empty:
+      sesString=""
+  fi
+
   for fMRIName in ${Tasklist[*]} ; do
     echo ""
     echo "###     ${fMRIName}     ###"
 
-    # TO-DO: handle the multi-session subjects
-    for fMRITimeSeries in `ls ${BIDSStudyFolder}/sub-${Subject}/func/sub-${Subject}_task-${fMRIName}*_bold.nii*`; do
+    # Loop through all functional runs corresponding to this task:
+    for fMRITimeSeries in `ls ${BIDSStudyFolder}/sub-${Subject}/${sesString#_}/func/sub-${Subject}${sesString}_task-${fMRIName}*_bold.nii*`; do
 	echo ""
 	echo "       ${fMRITimeSeries}"
 	## to distinguish between different runs and acquisitions:
@@ -184,15 +196,11 @@ for Subject in ${Subjlist[*]} ; do
 
 	DwellTime=`get_DwellTime ${fMRITimeSeries%.nii*}.json` # Effective Echo Spacing or Dwelltime of fMRI image, set to NONE if not used.
 
-	if [ -d ${BIDSStudyFolder}/sub-${Subject}/ses-* ]; then
-	    #volume with a negative/positive phase encoding direction:
-	    SpinEchoPhaseEncodeNegative=`ls ${BIDSStudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_acq-fMRI_*_dir-AP*.nii*`
-	    SpinEchoPhaseEncodePositive=`ls ${BIDSStudyFolder}/sub-${Subject}/ses-*/fmap/sub-${Subject}_ses-*_acq-fMRI_*_dir-PA*.nii*`
-	else
-	    #volume with a negative/positive phase encoding direction:
-	    SpinEchoPhaseEncodeNegative=`ls ${BIDSStudyFolder}/sub-${Subject}/fmap/sub-${Subject}_acq-fMRI_*dir-AP*.nii*`
-	    SpinEchoPhaseEncodePositive=`ls ${BIDSStudyFolder}/sub-${Subject}/fmap/sub-${Subject}_acq-fMRI_*dir-PA*.nii*`
-	fi
+	# For the spin-echo distortion maps, make sure you only look for them in the same session.
+	# To do that, get the portion of the "fMRITimeSeries" up to "/func/":
+	SpinEchoPhaseEncodeNegative=`ls ${fMRITimeSeries%/func/*}/fmap/sub-${Subject}${sesString}_acq-fMRI_*dir-AP*.nii*`
+	SpinEchoPhaseEncodePositive=`ls ${fMRITimeSeries%/func/*}/fmap/sub-${Subject}${sesString}_acq-fMRI_*dir-PA*.nii*`
+	
 	# TO-DO: if there is more than one, pick which one (maybe the one closest in time?)
 	# For now, just keep the first one:
 	SpinEchoPhaseEncodeNegative=`ls ${SpinEchoPhaseEncodeNegative%%.nii*}.nii*`
